@@ -15,6 +15,7 @@ Module maths
   Use linearAlgebra
   Use calcFunctions
   Use solveFunctions
+  Use functionPoints
   Use vectors
   Use regression
   Use interpolation

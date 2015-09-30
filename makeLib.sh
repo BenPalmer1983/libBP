@@ -19,10 +19,11 @@ commandLine=$commandLine"kinds.f90 strings.f90 general.f90 "
 commandLine=$commandLine"arrayFunctions.f90 constants.f90 "
 commandLine=$commandLine"units.f90 matrix.f90 basicMaths.f90 rng.f90 "
 commandLine=$commandLine"laplaceTransforms.f90 linearAlgebra.f90 calcFunctions.f90 "
-commandLine=$commandLine"solveFunctions.f90 vectors.f90 regression.f90 "
+commandLine=$commandLine"solveFunctions.f90 functionPoints.f90 vectors.f90 regression.f90 "
 commandLine=$commandLine"interpolation.f90 newtonGauss.f90 lmaM.f90 "
 commandLine=$commandLine"fitting.f90 rngDist.f90 coordFunctions.f90 "
-commandLine=$commandLine"activityFunctions.f90 specialistFunctions.f90 plot.f90 "
+commandLine=$commandLine"activityFunctions.f90 specialistFunctions.f90 "
+commandLine=$commandLine"splines.f90 plot.f90 "
 commandLine=$commandLine"maths.f90 libBP.f90 "
 eval $commandLine
 eval "mv "$srcDirLib"/*.o "$binDirLib

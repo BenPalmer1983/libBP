@@ -11,10 +11,14 @@ Module arrayFunctions
 ! Public
 ! ---- Functions
 ! ---- Subroutines  
+  Public :: PrintMatrix
   Public :: swapArrayRows1D
   Public :: swapArrayRows2D
   Public :: swapRows
-  ! Interfaces  
+! Interfaces  
+  Interface PrintMatrix
+    Module Procedure PrintMatrix_1D, PrintMatrix_2D
+  End Interface PrintMatrix
   Interface swapRows
     Module Procedure swapRows_Integer_1D, swapRows_Integer_2D, swapRows_Single_1D,&
     swapRows_Single_2D, swapRows_Double_1D, swapRows_Double_2D
@@ -34,7 +38,21 @@ Module arrayFunctions
 
 ! ARRAYS
 
-  Subroutine PrintMatrix(xMatrix)
+  Subroutine PrintMatrix_1D(xMatrix)
+! Prints out a 2D matrix
+    Implicit None  ! Force declaration of all variables
+! Declare private variables
+    Real(kind=DoubleReal), Dimension(:) :: xMatrix
+    Integer(kind=StandardInteger) :: i
+    Character(len=16) :: tempStr
+! Print
+    Do i=1,size(xMatrix,1)
+      write(tempStr,"(E10.4)") xMatrix(i)
+      print *,trim(tempStr)
+    End Do
+  End Subroutine PrintMatrix_1D
+
+  Subroutine PrintMatrix_2D(xMatrix)
 ! Prints out a 2D matrix
     Implicit None  ! Force declaration of all variables
 ! Declare private variables
@@ -59,7 +77,7 @@ Module arrayFunctions
       End Do
       print *,trim(printRow)
     End Do
-  End Subroutine PrintMatrix
+  End Subroutine PrintMatrix_2D
 
  Subroutine extractArrayColumnDP(inputArray,outputArray,column)
 ! Extract one column of a 2D dp array array(row,col)

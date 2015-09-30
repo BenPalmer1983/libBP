@@ -16,6 +16,7 @@ Module activityFunctions
 ! --functions--!
   Public :: CalcIsotopeAmount
   Public :: CalcIsotopeAmountGS
+  Public :: MaxTrajDepth
 ! Interfaces  
 !
 !---------------------------------------------------------------------------------------------------------------------------------------

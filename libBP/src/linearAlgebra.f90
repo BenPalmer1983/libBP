@@ -11,33 +11,43 @@ Module linearAlgebra
   Private
 ! Public
   Public :: SolveLinearSet
+  Public :: SolveLinearMatrix
 ! Interfaces  
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
   Contains 
 !---------------------------------------------------------------------------------------------------------------------------------------
 
-  Function SolveLinearSet(aMatrix, yMatrix) RESULT (xMatrix)
+  Function SolveLinearSet(aMatrixIn, yMatrixIn) RESULT (xMatrix)
 ! Force declaration of all variables
     Implicit None
 ! Declare variables
 ! In
-    Real(kind=DoubleReal), Dimension(:,:) :: aMatrix
-    Real(kind=DoubleReal), Dimension(:) :: yMatrix
+    Real(kind=DoubleReal), Dimension(:,:) :: aMatrixIn
+    Real(kind=DoubleReal), Dimension(:) :: yMatrixIn
 ! Out
-    Real(kind=DoubleReal), Dimension(1:size(yMatrix,1)) :: xMatrix
+    Real(kind=DoubleReal), Dimension(1:size(yMatrixIn,1)) :: xMatrix
 ! Priv
+    Real(kind=DoubleReal), Dimension(1:size(aMatrixIn,1),1:size(aMatrixIn,2)) :: aMatrix
+    Real(kind=DoubleReal), Dimension(1:size(yMatrixIn,1)) :: yMatrix
     Integer(kind=StandardInteger) :: row, col, matrixSize
     Integer(kind=StandardInteger) :: i, j
     Real(kind=DoubleReal) :: sumTerm
-    Real(kind=DoubleReal), Dimension(1:size(aMatrix,1),1:size(aMatrix,2)) :: lMatrix, uMatrix
-    Real(kind=DoubleReal), Dimension(1:size(yMatrix,1)) ::  bMatrix
+    Real(kind=DoubleReal), Dimension(1:size(aMatrixIn,1),1:size(aMatrixIn,2)) :: lMatrix, uMatrix
+    Real(kind=DoubleReal), Dimension(1:size(yMatrixIn,1)) ::  bMatrix
+    Integer(kind=StandardInteger), Dimension(1:size(yMatrixIn,1)) :: pivot
+! Transfer data    
+    aMatrix = aMatrixIn
+    yMatrix = yMatrixIn
 ! If matrix sizes are correct
-    If(size(aMatrix,1).eq.size(aMatrix,1).and.size(aMatrix,1).eq.size(yMatrix,1))Then
+    If(size(aMatrix,1).eq.size(aMatrix,2).and.size(aMatrix,1).eq.size(yMatrix,1))Then
 ! Init matrices
       bMatrix = 0.0D0
 ! size of square matrix
       matrixSize = size(aMatrix,1)
+! Pivot Matrix
+      Call PivotMatrix(aMatrix, pivot, 'M')
+      Call PivotMatrix(yMatrix, pivot, 'A')    
 ! LU decomposition
       Call LUDecomp(aMatrix, lMatrix, uMatrix)
 ! Ax=(LU)x=L(Ux)=y   Ux=b   Lb=y
@@ -68,9 +78,32 @@ Module linearAlgebra
             Exit  ! break
           End If
         End Do
-      End Do
+      End Do 
     End If
-  End Function SolveLinearSet
+  End Function SolveLinearSet  
   
-  
+  Function SolveLinearMatrix(aMatrixIn, yMatrixIn) RESULT (xMatrix)
+! Force declaration of all variables
+    Implicit None
+! In:      Declare variables
+    Real(kind=DoubleReal), Dimension(:,:) :: aMatrixIn
+    Real(kind=DoubleReal), Dimension(:) :: yMatrixIn
+! Out:     Declare variables
+    Real(kind=DoubleReal), Dimension(1:size(aMatrixIn,1)) :: xMatrix
+! Private: Declare variables
+    Real(kind=DoubleReal), Dimension(1:size(aMatrixIn,1),1:size(aMatrixIn,2)) :: aMatrix
+    Real(kind=DoubleReal), Dimension(1:size(yMatrixIn,1)) :: yMatrix
+    Integer(kind=StandardInteger), Dimension(1:size(aMatrixIn,1)) :: pivot
+! Transfer data    
+    aMatrix = aMatrixIn
+    yMatrix = yMatrixIn
+! If matrix sizes are correct
+    If(size(aMatrix,1).eq.size(aMatrix,2).and.size(aMatrix,1).eq.size(yMatrix,1))Then
+! Pivot
+      Call PivotMatrix(aMatrix, pivot, 'M')
+      Call PivotMatrix(yMatrix, pivot, 'A')    
+      aMatrix = InvertMatrix(aMatrix)    
+      xMatrix = matmul(aMatrix,yMatrix)
+    End If  
+  End Function SolveLinearMatrix
 End Module linearAlgebra

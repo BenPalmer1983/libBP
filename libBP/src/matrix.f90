@@ -3,11 +3,13 @@ Module matrix
 ! Ben Palmer, University of Birmingham
 ! --------------------------------------------------------------!
   Use kinds
+  Use arrayFunctions
 ! Force declaration of all variables
   Implicit None
 ! Make private
   Private
 ! Public
+! --- Functions
   Public :: InvertMatrix
   Public :: TransposeMatrix
   Public :: IdentityMatrix
@@ -16,10 +18,16 @@ Module matrix
   Public :: MatAdd
   Public :: MatMult
   Public :: ScalarMult  
+  Public :: PivotMatrix
+! --- Subroutines
+  Public :: LUDecomp
 ! Interfaces  
   Interface Trace
     Module Procedure Trace_R, Trace_I
   End Interface Trace
+  Interface PivotMatrix
+    Module Procedure PivotMatrix_1D, PivotMatrix_2D
+  End Interface PivotMatrix
 !---------------------------------------------------------------------------------------------------------------------------------------
   Contains 
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -31,14 +39,16 @@ Module matrix
   Function InvertMatrix(xMatrix) RESULT (xMatrixInverse)
 ! Invert square matrix
     Implicit None  !Force declaration of all variables
-! Declare variables
+! In:      Declare variables
     Real(kind=DoubleReal), Dimension(:,:) :: xMatrix
+! Out:     Declare variables
+    Real(kind=DoubleReal), Dimension(1:size(xMatrix,1),1:size(xMatrix,1)) :: xMatrixInverse
+! Private: Declare variables
     Integer(kind=StandardInteger) :: row,col,rowb
     Integer(kind=StandardInteger) :: matrixSize
     Real(kind=DoubleReal), Dimension(1:size(xMatrix,1),1:2*size(xMatrix,1)) :: xMatrixWorking
-    Real(kind=DoubleReal), Dimension(1:size(xMatrix,1),1:size(xMatrix,1)) :: xMatrixInverse
     Real(kind=DoubleReal), Dimension(1:2*size(xMatrix,1)) :: xMatrixRow
-! matrix(row,column)
+! matrix(row,column)  
 ! Initialise variables
     row = 0
     rowb = 0
@@ -117,7 +127,7 @@ Module matrix
           xMatrixWorking(row,col+matrixSize)/xMatrixWorking(row,row)
         End Do
       End Do
-    End If
+    End If 
   End Function InvertMatrix
 
   Function TransposeMatrix(xMatrix) RESULT (xMatrixTranspose)
@@ -270,8 +280,7 @@ Module matrix
         oMatrix(i,j) = scalar*xMatrix(i,j)
       End Do
     End Do
-  End Function ScalarMult
-  
+  End Function ScalarMult  
 
 ! ---------------------------------------------------------
 ! MODULE SUBROUTINES
@@ -318,7 +327,109 @@ Module matrix
       End Do
     End If
   End Subroutine LUDecomp
-  
+    
+  Subroutine PivotMatrix_1D(xMatrix, pivotMap, operationIn)
+! Force declaration of all variables
+    Implicit None
+! In:      Declare variables
+    Real(kind=DoubleReal), Dimension(:) :: xMatrix
+    Integer(kind=StandardInteger), Dimension(:) :: pivotMap
+    Character(Len=1), Optional :: operationIn
+! Private: Declare variables    
+    Integer(kind=StandardInteger) :: row
+    Logical :: sortFlag
+    Character(Len=1) :: operation
+    Logical, Dimension(1:size(xMatrix,1)) :: swapFlags
+! Optional     
+    operation = "M"  ! M make, A apply, R reverse
+    If(Present(operationIn))Then
+      operation = operationIn
+    End If
+! M: Make pivot map and pivot the input matrix    
+    If(operation.eq."M")Then
+! Sort matrix
+      sortFlag = .true.
+      Do while(sortFlag)
+        sortFlag = .false.
+        Do row=1,(size(xMatrix,1)-1)
+          If(xMatrix(row).lt.xMatrix(row+1))Then
+            sortFlag = .true.
+            Call swapRows(xMatrix,row,row+1)
+            Call swapRows(pivotMap,row,row+1)
+          End If
+        End Do
+      End Do
+    End If  
+! A: Apply pivot map to the input matrix (Reverse is just the same)
+    If(operation.eq."A".or.operation.eq."R")Then
+      swapFlags = .true.
+      Do row=1,size(xMatrix,1)
+        If(swapFlags(row))Then
+          swapFlags(row) = .false.
+          swapFlags(pivotMap(row)) = .false.
+          Call swapRows(xMatrix,row,pivotMap(row))
+        End If
+      End Do      
+    End If    
+  End Subroutine PivotMatrix_1D
+    
+  Subroutine PivotMatrix_2D(xMatrix, pivotMap, operationIn)
+! Force declaration of all variables
+    Implicit None
+! In:      Declare variables
+    Real(kind=DoubleReal), Dimension(:,:) :: xMatrix
+    Integer(kind=StandardInteger), Dimension(:) :: pivotMap
+    Character(Len=1), Optional :: operationIn
+! Private: Declare variables    
+    Integer(kind=StandardInteger), Dimension(1:size(xMatrix,1)) :: sortMatrix
+    Integer(kind=StandardInteger) :: row, col
+    Logical :: sortFlag
+    Character(Len=1) :: operation
+    Logical, Dimension(1:size(xMatrix,1)) :: swapFlags
+! Optional     
+    operation = "M"  ! M make, A apply, R reverse
+    If(Present(operationIn))Then
+      operation = operationIn
+    End If
+! M: Make pivot map and pivot the input matrix    
+    If(operation.eq."M")Then
+! Init  
+      sortMatrix = 0
+! Loop
+      Do row=1,size(xMatrix,1)   
+        Do col=1,size(xMatrix,2)       
+          If(xMatrix(row,col).ne.0.0D0)Then
+            sortMatrix(row) = sortMatrix(row) + 2**(size(xMatrix,2)-col+1)
+          End If  
+        End Do
+        pivotMap(row) = row
+      End Do
+! Sort matrix
+      sortFlag = .true.
+      Do while(sortFlag)
+        sortFlag = .false.
+        Do row=1,(size(xMatrix,1)-1)
+          If(sortMatrix(row).lt.sortMatrix(row+1))Then
+            sortFlag = .true.
+            Call swapRows(xMatrix,row,row+1)
+            Call swapRows(sortMatrix,row,row+1)
+            Call swapRows(pivotMap,row,row+1)
+          End If
+        End Do
+      End Do
+    End If  
+! A: Apply pivot map to the input matrix (Reverse is just the same)
+    If(operation.eq."A".or.operation.eq."R")Then
+      swapFlags = .true.
+      Do row=1,size(xMatrix,1)
+        If(swapFlags(row))Then
+          swapFlags(row) = .false.
+          swapFlags(pivotMap(row)) = .false.
+          Call swapRows(xMatrix,row,pivotMap(row))
+        End If
+      End Do      
+    End If    
+  End Subroutine PivotMatrix_2D
   
 
 End Module matrix

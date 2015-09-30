@@ -15,6 +15,7 @@ Module libBP
   Use linearAlgebra
   Use calcFunctions
   Use solveFunctions
+  Use functionPoints
   Use vectors
   Use regression
   Use interpolation
@@ -25,5 +26,6 @@ Module libBP
   Use coordFunctions
   Use activityFunctions
   Use specialistFunctions
+  Use splines
   Use plot
 End Module libBP
