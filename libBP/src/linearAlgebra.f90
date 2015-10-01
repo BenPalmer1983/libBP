@@ -21,13 +21,12 @@ Module linearAlgebra
   Function SolveLinearSet(aMatrixIn, yMatrixIn) RESULT (xMatrix)
 ! Force declaration of all variables
     Implicit None
-! Declare variables
-! In
+! In:      Declare variables
     Real(kind=DoubleReal), Dimension(:,:) :: aMatrixIn
     Real(kind=DoubleReal), Dimension(:) :: yMatrixIn
-! Out
+! Out:     Declare variables
     Real(kind=DoubleReal), Dimension(1:size(yMatrixIn,1)) :: xMatrix
-! Priv
+! Private: Declare variables
     Real(kind=DoubleReal), Dimension(1:size(aMatrixIn,1),1:size(aMatrixIn,2)) :: aMatrix
     Real(kind=DoubleReal), Dimension(1:size(yMatrixIn,1)) :: yMatrix
     Integer(kind=StandardInteger) :: row, col, matrixSize

@@ -5,6 +5,7 @@ Module lmaM
   Use kinds
   Use constants
   Use matrix
+  Use linearAlgebra
   Use calcFunctions
 ! Force declaration of all variables
   Implicit None
@@ -142,6 +143,11 @@ Module lmaM
         End Do
 ! Calc RSS
         rssTrial = LMA_FunctionRSS(points, calcFunction, parameters)
+! Breakout if NaN
+        If(Isnan(rssTrial))Then
+          parameters = parametersL 
+          Exit          
+        End If
 ! Check convergence
         convV = abs((rssTrial-rss)/rss)
         If(convV.lt.convT)Then
@@ -183,10 +189,13 @@ Module lmaM
 ! Private variables
     Integer(kind=StandardInteger) :: i
     Real(kind=DoubleReal), Dimension(1:size(R),1:size(R)) :: W                ! 
-    Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,1)) :: JTW              ! 
     Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,1)) :: JT               ! Transpose Jacobian
-    Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,2)) :: JTJ, JTJ_Inv, JTJ_Diag     ! (Jacobian Transpose * Jacobian)
-    Real(kind=DoubleReal), Dimension(1:size(J,2)) :: JTR                           ! (Jacobian Transpose * Residuals)
+    Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,1)) :: JTW              ! 
+    Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,2)) :: JTWJ
+    Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,2)) :: JTWJ_Diag
+    Real(kind=DoubleReal), Dimension(1:size(J,2)) :: JTWR 
+    Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,2)) :: A  ! Left side
+    Real(kind=DoubleReal), Dimension(1:size(J,2)) :: B              ! Right side
     Real(kind=DoubleReal), Dimension(1:size(J,2)) :: P                             ! Change
     Real(kind=DoubleReal) :: lambdaCutoff
 ! ***********
@@ -210,20 +219,19 @@ Module lmaM
 ! Matrix calculations
     JT = TransposeMatrix(J)
     JTW = matmul(JT,W)
-    JTJ = matmul(JTW,J)
-    JTJ_Diag = lambda*DiagMatrix(JTJ) ! Dampening Matrix
-    JTJ = MatAdd(JTJ,JTJ_Diag) ! Recycle JTJ
-    JTJ_Inv = InvertMatrix(JTJ) ! store inverse (recycle JTJ var)
-    JTR = matmul(JTW,R)
-    JTR = -1.0D0*JTR ! Recycle JTR var
-    P = matmul(JTJ_Inv,JTR)
+    JTWJ = matmul(JTW,J)
+    JTWR = matmul(JTW,R)
+    JTWJ_Diag = lambda*DiagMatrix(JTWJ) ! Dampening Matrix
+    A = MatAdd(JTWJ,JTWJ_Diag)
+    B = -1.0D0*JTWR
+    P = SolveLinearSet(A, B)
 ! Update parameters
     Do i=1,size(P)
       parametersOut(i) = parametersIn(i) + P(i)
     End Do
   End Function LMA_Calc
 
-  Function LMA_Lambda (J) RESULT (lambda)
+  Function LMA_Lambda(J) RESULT (lambda)
     Implicit None  !Force declaration of all variables
 ! In
     Real(kind=DoubleReal), Dimension(:,:) :: J                                     ! Jacobian

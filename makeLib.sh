@@ -5,8 +5,8 @@ srcDirLib=$workingDirLib"/libBP/src"
 modDirLib=$workingDirLib"/libBP/mod"
 libDirLib=$workingDirLib"/libBP/lib"
 binDirLib=$workingDirLib"/libBP/bin"
-fortLine="mpif90 -O3 -g -Wall -Wno-unused-function \
--fbounds-check -fcheck=all -mtune=native "
+fortLine="mpif90 -g -Wall -Wno-unused-function \
+-fbounds-check -fcheck=all -mtune=native "  # -O3
 #----------------------------------------------------------------------------------
 mkdir -p $binDirLib
 mkdir -p $libDirLib

@@ -27,5 +27,6 @@ Module libBP
   Use activityFunctions
   Use specialistFunctions
   Use splines
+  Use plotTypes
   Use plot
 End Module libBP

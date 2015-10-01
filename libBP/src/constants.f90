@@ -7,6 +7,11 @@ Module constants
   Implicit None
 ! Useful parameters for source code
   Integer(kind=StandardInteger), Parameter :: maxFileRows = 10000000
+  
+  
+  
+  
+! Legacy - no naming standard  
 ! Physical and Mathematical constants
   Real(kind=DoubleReal), Parameter :: avogadrosConstant = 6.02214129D23
   Real(kind=DoubleReal), Parameter :: elementaryCharge = 1.60217656D-19

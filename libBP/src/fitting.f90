@@ -3,9 +3,11 @@ Module fitting
 ! Ben Palmer, University of Birmingham
 ! --------------------------------------------------------------!
   Use kinds
+  Use strings
   Use constants
   Use matrix
   Use rng
+  Use calcFunctions
   Use regression
   Use interpolation
   Use lmaM
@@ -18,14 +20,20 @@ Module fitting
 ! --variables--!
 ! --functions--!
   Public :: BirchMurnFit
+  Public :: ExpFit
   Public :: SingleDecayFit
   Public :: DoubleDecayFit
+  Public :: TripleDecayFit
+  Public :: FittingPoints
 ! Interfaces  
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
   Contains 
 !---------------------------------------------------------------------------------------------------------------------------------------
   
+! ----------------------------------------------------------------------------------
+! Birch-Murnaghan Fitting with LMA
+! ----------------------------------------------------------------------------------
 
   Function BirchMurnFit(points, bp0Lower_In, bp0Upper_In) RESULT (coefficients)
 ! Fit Murnaghan EoS to data
@@ -82,17 +90,40 @@ Module fitting
 ! store LMA if better
     coefficients = parameters    
   End Function BirchMurnFit
+  
+  
+! ----------------------------------------------------------------------------------
+! EXP fitting - single term, double terms, triple terms
+! ---------------------------------------------------------------------------------- 
+
+  Function ExpFit(dataPoints,terms) RESULT (parameters)
+    Implicit None   ! Force declaration of all variables
+! In:      Declare variables
+    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
+    Integer(kind=StandardInteger) :: terms
+! Out:     Declare variables
+    Real(kind=DoubleReal), Dimension(1:(2*terms)) :: parameters
+    parameters = 0.0D0
+    If(terms.eq.1)Then
+      parameters = SingleDecayFit(dataPoints)
+    End If
+    If(terms.eq.2)Then
+      parameters = DoubleDecayFit(dataPoints)
+    End If
+    If(terms.eq.3)Then
+      parameters = TripleDecayFit(dataPoints)
+    End If
+  End Function ExpFit
+  
     
   Function SingleDecayFit(dataPoints) RESULT (parameters)
-! Fit Murnaghan EoS to data
-! Fitting method adapted from http://gilgamesh.cheme.cmu.edu/doc/software/jacapo/appendices/appendix-eos.html
-! Birch-Murnaghan equation described by Hebbache 2004
+! Fit aexp(mx) to data
     Implicit None   ! Force declaration of all variables
-! In
+! In:      Declare variables
     Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
-! Out
+! Out:     Declare variables
     Real(kind=DoubleReal), Dimension(1:2) :: parameters
-! Private
+! Private: Declare variables
     Integer(kind=StandardInteger) :: n
     Real(kind=DoubleReal) :: lnY
     Real(kind=DoubleReal) :: sumY, sumX_Y, sumX_X_Y
@@ -279,13 +310,16 @@ Module fitting
     parameters(1) = cbMatrix(1)
     parameters(2) = p1
     parameters(3) = cbMatrix(2)
-    parameters(4) = q1
-    Do i=1,2
+    parameters(4) = q1    
+    Do i=1,4
       If(isnan(parameters(i)))Then  ! If fitting fails
         parameters(i) = 1.0D0
       End If
     End Do    
 ! Fit parameters
+    print *,parameters(1),parameters(2),parameters(3),parameters(4)
+    beta = LMA_Exp(0.5D0,parameters,4)
+    print *,"y",beta
     parameters = LMA(dataPoints, LMA_Exp, parameters)    
   End Function DoubleDecayFit
   
@@ -403,5 +437,120 @@ Module fitting
     End Do
   End Function TripleDecayFitRSS
   
+    
+  
+! ----------------------------------------------------------------------------------
+! Fitting Points
+! Use fitting functions, regression functions
+! ---------------------------------------------------------------------------------- 
+
+  Function FittingPoints(dataPointsIn, calcFunction, pointsOutCount, optArgA, optArgB) Result (dataPointsOut)
+! Fit to input data, and give set of points for the fit function
+    Implicit None   ! Force declaration of all variables
+! In:      Declare variables
+    Real(kind=DoubleReal), Dimension(:,:) :: dataPointsIn
+    Character(*) :: calcFunction
+    Integer(kind=StandardInteger) :: pointsOutCount
+    Real(kind=DoubleReal), Optional :: optArgA, optArgB
+! Out:     Declare variables
+    Real(kind=DoubleReal), Dimension(1:pointsOutCount,1:2) :: dataPointsOut
+! Private: Declare variables
+    Integer(kind=StandardInteger) :: i, pointsInCount
+    Character(Len=12) :: calcFunctionT
+    Real(kind=DoubleReal), Dimension(1:2) :: parameters2
+    Real(kind=DoubleReal), Dimension(1:3) :: parameters3
+    Real(kind=DoubleReal), Dimension(1:4) :: parameters4
+    Real(kind=DoubleReal), Dimension(1:5) :: parameters5
+    Real(kind=DoubleReal), Dimension(1:6) :: parameters6
+    Real(kind=DoubleReal) :: xStart, xEnd, xInc
+    Real(kind=DoubleReal) :: argA, argB
+! Optional arguments    
+    argA = 0.0D0
+    argB = 0.0D0
+    If(Present(optArgA))Then
+      argA = optArgA
+    End If
+    If(Present(optArgB))Then
+      argB = optArgB
+    End If
+! Init
+    pointsInCount = size(dataPointsIn,1)
+    calcFunctionT = "            "
+    calcFunctionT = Trim(AdjustL(StrToUpper(calcFunction)))
+    parameters2 = 0.0D0
+    parameters3 = 0.0D0
+    parameters4 = 0.0D0
+    parameters5 = 0.0D0
+    parameters6 = 0.0D0    
+! Start/End x
+    xStart = dataPointsIn(1,1)
+    xEnd = dataPointsIn(pointsInCount,1)       
+    xInc = (xEnd-xStart)/(pointsOutCount-1.0D0) 
+! Poly fit
+    If(calcFunctionT(1:5).eq."POLY2")Then   ! Second order (3 params)
+      parameters3 = PolyFit(dataPointsIn,2)
+      Do i=1,pointsOutCount
+        dataPointsOut(i,1) = xStart+(i-1)*xInc
+        dataPointsOut(i,2) = CalcPolynomial(parameters3,dataPointsOut(i,1))
+      End Do
+    End If
+    If(calcFunctionT(1:5).eq."POLY3")Then   ! Third order (4 params)
+      parameters4 = PolyFit(dataPointsIn,3)
+      Do i=1,pointsOutCount
+        dataPointsOut(i,1) = xStart+(i-1)*xInc
+        dataPointsOut(i,2) = CalcPolynomial(parameters4,dataPointsOut(i,1))
+      End Do
+    End If
+    If(calcFunctionT(1:5).eq."POLY4")Then   ! Fourth order (5 params)
+      parameters5 = PolyFit(dataPointsIn,4)
+      Do i=1,pointsOutCount
+        dataPointsOut(i,1) = xStart+(i-1)*xInc
+        dataPointsOut(i,2) = CalcPolynomial(parameters5,dataPointsOut(i,1))
+      End Do
+    End If
+    If(calcFunctionT(1:5).eq."POLY5")Then   ! Fifth order (6 params)
+      parameters6 = PolyFit(dataPointsIn,5)
+      Do i=1,pointsOutCount
+        dataPointsOut(i,1) = xStart+(i-1)*xInc
+        dataPointsOut(i,2) = CalcPolynomial(parameters6,dataPointsOut(i,1))
+      End Do
+    End If    
+! EXP fit
+    If(calcFunctionT(1:7).eq."EXPFIT1")Then ! 1 term 
+      parameters2 = ExpFit(dataPointsIn,1)
+      Do i=1,pointsOutCount
+        dataPointsOut(i,1) = xStart+(i-1)*xInc
+        dataPointsOut(i,2) = ExpCalc(dataPointsOut(i,1),parameters2)
+      End Do
+    End If
+    If(calcFunctionT(1:7).eq."EXPFIT2")Then ! 2 terms 
+      parameters4 = ExpFit(dataPointsIn,2)
+      Do i=1,pointsOutCount
+        dataPointsOut(i,1) = xStart+(i-1)*xInc
+        dataPointsOut(i,2) = ExpCalc(dataPointsOut(i,1),parameters4)
+      End Do
+    End If
+    If(calcFunctionT(1:7).eq."EXPFIT3")Then ! 3 terms 
+      parameters6 = ExpFit(dataPointsIn,3)
+      Do i=1,pointsOutCount
+        dataPointsOut(i,1) = xStart+(i-1)*xInc
+        dataPointsOut(i,2) = ExpCalc(dataPointsOut(i,1),parameters6)
+      End Do
+    End If
+! Bulk Modulus Fit
+    If(calcFunctionT(1:3).eq."BMR")Then   ! BM Restrict BP0
+      parameters6 = PolyFit(dataPointsIn,5)
+      Do i=1,pointsOutCount
+        dataPointsOut(i,1) = xStart+(i-1)*xInc
+        dataPointsOut(i,2) = CalcPolynomial(parameters6,dataPointsOut(i,1))
+      End Do
+    End If   
+    
+    !ExpFit(dataPoints,terms)
+    
+
+
+
+  End Function FittingPoints
   
 End Module fitting

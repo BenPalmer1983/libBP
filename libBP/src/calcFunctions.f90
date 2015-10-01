@@ -142,12 +142,12 @@ Module calcFunctions
 ! Single or multiple term exponential functions
     Implicit None  !Force declaration of all variables
 ! Declare variables  
-! In
+! In:      Declare variables
     Real(kind=DoubleReal) :: x
     Real(kind=DoubleReal), Dimension(:) :: coefficients
-! Out
+! Out:     Declare variables
     Real(kind=DoubleReal) :: y
-! Private
+! Private: Declare variables
     Integer(kind=StandardInteger) :: i, j, terms
 ! Calculate
     terms = ceiling(size(coefficients,1)/2.0D0)     
