@@ -45,8 +45,8 @@ Module plotTypes
     Integer(kind=StandardInteger), Dimension(1:100) :: dataSetType=0  ! 0 = input, 1 = fit data set
     Character(Len=128), Dimension(1:200) :: fittingText = ""
     Integer(kind=StandardInteger) :: fittingTextLine = 0
-    Logical :: fittingSummaryFile = .true.
-    Logical :: dataFile = .true.
+    Logical :: fittingSummaryFile = .false.
+    Logical :: dataFile = .false.
   End Type  
   
 ! Marker options:     point: "."  pixel: ","  circle: "o"  square: "s"  star: "*"
