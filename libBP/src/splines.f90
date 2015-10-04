@@ -23,6 +23,7 @@ Module splines
   Public :: SplineNodesV
   Public :: SplineComplete
   Public :: VaryNode
+  Public :: SplinePoints
 ! --- Subroutines  
   Public :: CompleteNodeData
 ! Interfaces  
@@ -91,9 +92,7 @@ Module splines
       yMatrix(row) = pointB(i+1)
     End Do
 ! solve equation
-! coefficients = SolveLinearSet(xMatrix,yMatrix)
-    xMatrix = InvertMatrix(xMatrix)
-    coefficients = matmul(xMatrix,yMatrix)
+    coefficients = SolveLinearSet(xMatrix,yMatrix)
   End Function SplineAB
   
   
@@ -489,7 +488,7 @@ Module splines
           If(dataPointsOut(j,2).ne.0.0D0)Then
             xB = dataPointsOut(j,1)
             yB = dataPointsOut(j,2)
-            exit
+            Exit
           End If
         End Do
         grad = (yB-yA)/(xB-xA)
@@ -501,6 +500,84 @@ Module splines
       End If
     End Do
   End Function FillSplineResponse
+  
+! ---------------------------------------------
+! Spline Fitting
+! ---------------------------------------------
+  
+  Function SplinePoints(dataPointsIn, pointsOutCount) RESULT (dataPointsOut)
+! Force declaration of all variables
+    Implicit None
+! In:      Declare variables
+    Real(kind=DoubleReal), Dimension(:,:) :: dataPointsIn
+    Integer(kind=StandardInteger) :: pointsOutCount
+! Out:     Declare variables
+    Real(kind=DoubleReal), Dimension(1:pointsOutCount,1:2) :: dataPointsOut
+! Private: Declare variables
+    Integer(kind=StandardInteger) :: i, j, n, k, pointsInCount
+    Real(kind=DoubleReal) :: x
+    Real(kind=DoubleReal) :: xStart,xEnd,xInc
+    Real(kind=DoubleReal) :: xUpper,xLower
+    Real(kind=DoubleReal) :: xA, xB
+    Real(kind=DoubleReal), Dimension(1:4,1:2) :: interpArray
+    Real(kind=DoubleReal), Dimension(1:4) :: A, B
+    Real(kind=DoubleReal), Dimension(1:6) :: coefficients
+! Init
+    pointsInCount = size(dataPointsIn,1)
+    xStart = dataPointsIn(1,1)    
+    xEnd = dataPointsIn(pointsInCount,1)    
+    xInc = (xEnd-xStart)/(pointsOutCount-1.0D0)
+! Loop through points to make
+    n = 1
+    Do i=1,pointsOutCount
+! Output node x val    
+      x = xStart+(i-1)*xInc
+! Input node x lower/upper    
+      xLower = dataPointsIn(n,1)
+      xUpper = dataPointsIn(n+1,1)      
+! Get spline coefficients
+      If(i.eq.1.or.x.gt.xUpper)Then 
+! Find start and end node
+        Do k=n,(pointsInCount-1)
+          xLower = dataPointsIn(k,1)
+          xUpper = dataPointsIn(k+1,1)        
+          If(x.ge.xLower.and.x.le.xUpper)Then
+            n = k
+          End If
+        End Do
+        xA = dataPointsIn(n,1)
+        xB = dataPointsIn(n+1,1)
+! Interp node start (four point interp 1,(2),3,4)
+        k = n - 1
+        If(k.lt.1)Then
+          k = 1
+        End If
+        If((k+3).gt.pointsInCount)Then
+          k = pointsInCount-3
+        End If
+        interpArray = 0.0D0
+        Do j=1,4
+          interpArray(j,1) = dataPointsIn(k+(j-1),1)
+          interpArray(j,2) = dataPointsIn(k+(j-1),2)      
+        End Do
+        A(1) = xA
+        A(2) = InterpLagrange(xA,interpArray,0)
+        A(3) = InterpLagrange(xA,interpArray,1)
+        A(4) = InterpLagrange(xA,interpArray,2)
+        B(1) = xB
+        B(2) = InterpLagrange(xB,interpArray,0)
+        B(3) = InterpLagrange(xB,interpArray,1)
+        B(4) = InterpLagrange(xB,interpArray,2)
+! Spline        
+        coefficients = SplineAB(A,B)
+      End If
+! store output points
+      dataPointsOut(i,1) = x
+      dataPointsOut(i,2) = CalcPolynomial(coefficients,x)
+    End Do
+  End Function SplinePoints
+  
+  
 
 ! ---------------------------------------------------------
 ! MODULE SUBROUTINES
@@ -572,5 +649,14 @@ Module splines
 ! print *,""
     End Do
   End Subroutine CompleteNodeData
+  
+  
+  
+  
+  
+  
+  
+  
+
 
 End Module splines

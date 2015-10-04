@@ -19,6 +19,8 @@ Module strings
   Public :: SpacesRight
   Public :: RemoveComments
   Public :: RemoveQuotes
+  Public :: IntToStr
+  Public :: DpToStr
   
 !---------------------------------------------------------------------------------------------------------------------------------------
   Contains 
@@ -196,6 +198,33 @@ Module strings
       End If
     End Do
   End Function RemoveQuotes
+  
+  Function IntToStr (input) RESULT (output)
+! Apply style to last dataset added (unless otherwise specified)
+    Implicit None  ! Force declaration of all variables  
+  ! In:      Declare variables  
+    Integer(kind=StandardInteger) :: input
+  ! Out:     Declare variables    
+    Character(Len=16) :: output
+    Write(output,"(I16)") input
+    output = trim(adjustl(output))
+  End Function IntToStr
+  
+  Function DpToStr (input) RESULT (output)
+! Apply style to last dataset added (unless otherwise specified)
+    Implicit None  ! Force declaration of all variables  
+  ! In:      Declare variables  
+    Real(kind=DoubleReal) :: input
+  ! Out:     Declare variables    
+    Character(Len=16) :: output
+    Write(output,"(E12.5)") input
+    output = trim(adjustl(output))
+  End Function DpToStr
+  
+  
+  
+  
+  
 !---------------------------------------------------------------------------------------------------------------------------------------
 !---------------------------------------------------------------------------------------------------------------------------------------
 End Module strings

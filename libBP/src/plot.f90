@@ -5,6 +5,13 @@
 ! --------------------------------------------------------------!
 ! Uses Matplotlib python library to build charts
 ! Requires matplotlib to be installed
+! 
+! Two modules must be used - plotTypes to load the types, and plot to use the plot functions
+! and subroutines.  It must be compiled as a part of this library of functions as there are 
+! quite a lot of modules it depends on.  
+! 
+! There is an option to perform one or multiple fits on the input data.
+! 
 ! ----------------------------------------
 ! Updated: 21st September 2015
 ! ----------------------------------------
@@ -23,6 +30,9 @@ Module plotTypes
     Real(kind=DoubleReal) :: xMax=-1.1D99
     Real(kind=DoubleReal) :: yMin=1.1D99
     Real(kind=DoubleReal) :: yMax=-1.1D99
+    Integer(kind=StandardInteger) :: dpi=144
+    Integer(kind=StandardInteger) :: width=1792
+    Integer(kind=StandardInteger) :: height=1008
     Logical ::               cleanPyFile=.true.
   End Type  
   
@@ -32,6 +42,11 @@ Module plotTypes
     Real(kind=DoubleReal), Dimension(1:10000,1:2) :: dataArr = 0.0D0
     Character(Len=10), Dimension(1:100) :: marker = "."
     Character(Len=10), Dimension(1:100) :: linestyle = "_"
+    Integer(kind=StandardInteger), Dimension(1:100) :: dataSetType=0  ! 0 = input, 1 = fit data set
+    Character(Len=128), Dimension(1:200) :: fittingText = ""
+    Integer(kind=StandardInteger) :: fittingTextLine = 0
+    Logical :: fittingSummaryFile = .true.
+    Logical :: dataFile = .true.
   End Type  
   
 ! Marker options:     point: "."  pixel: ","  circle: "o"  square: "s"  star: "*"
@@ -80,7 +95,7 @@ Module plot
     settings%yMax=-1.1D99  
   End Subroutine plotInit
   
-  Recursive Subroutine plotAdd(dataObj, dataArray, labelIn, fitListIn, rowStartIn, rowEndIn, colXIn, colYIn) 
+  Recursive Subroutine plotAdd(dataObj, dataArray, labelIn, fitListIn, rowStartIn, rowEndIn, colXIn, colYIn, fitAddIn) 
 ! Add data to the data object  
     Implicit None  ! Force declaration of all variables
 ! Input      
@@ -89,9 +104,10 @@ Module plot
     Character(*), Optional :: labelIn
     Integer(kind=StandardInteger), Optional :: rowStartIn, rowEndIn, colXIn, colYIn
     Character(*), Optional :: fitListIn
+    Integer(kind=StandardInteger), Optional :: fitAddIn
 ! Private variables
     Integer(kind=StandardInteger) :: i, n, k, keyFit
-    Integer(kind=StandardInteger) :: rowStart, rowEnd, colX, colY
+    Integer(kind=StandardInteger) :: rowStart, rowEnd, colX, colY, fitAdd
     Character(Len=32) :: label
     Character(Len=64) :: fitList
     Character(Len=12) :: fitType
@@ -102,6 +118,7 @@ Module plot
     colX = 1
     colY = 2
     fitList = BlankString(fitList)
+    fitAdd = 0
     If(Present(labelIn))Then
       label = labelIn
     End If
@@ -121,7 +138,10 @@ Module plot
       fitList = fitListIn
     End If
     fitList = Trim(Adjustl(StrToUpper(fitList)))
-! Store data
+    If(Present(fitAddIn))Then
+      fitAdd = fitAddIn
+    End If    
+! Store data - key = k
     Do k=1,size(dataObj%key,1)
       If(dataObj%key(k,1).eq.-1)Then
         If(k.eq.1)Then
@@ -137,6 +157,7 @@ Module plot
           dataObj%dataArr(n,2) = dataArray(i,2) 
         End Do
         dataObj%key(k,2) = n
+        dataObj%dataSetType(k) = fitAdd
         Exit
       End If
     End Do
@@ -147,10 +168,10 @@ Module plot
       keyFit = k
       Do i=1,64
         n = n + 1
-        keyFit = keyFit + 1
         If(fitList(i:i).eq.",".or.fitList(i:i).eq." ")Then
+          keyFit = keyFit + 1
           Call plotFit(dataObj, dataArray, label, rowStart, rowEnd, colX, colY, fitType, 200)
-          Call plotStyle(dataObj,",","--")
+          Call plotStyle(dataObj,",","--",keyFit)
           fitType = BlankString(fitType)
           n = 0
           If(fitList(i:i).eq." ")Then
@@ -188,9 +209,20 @@ Module plot
     End Do      
 ! Fit data points
     fitDataPoints = FittingPoints(inputDataPoints, fitType, dataPoints)
+! Store data   
+    Do i=1,20
+      If(Trim(fittingReport(i)).eq."")Then
+        Exit
+      Else
+        n = dataObj%fittingTextLine
+        n = n + 1
+        dataObj%fittingText(n) = fittingReport(i)
+        dataObj%fittingTextLine = n
+      End If
+    End Do    
 ! Add data set
     labelFit = trim(adjustl(label))//" "//fitType
-    Call plotAdd(dataObj, fitDataPoints, labelFit, "")
+    Call plotAdd(dataObj, fitDataPoints, labelFit, "",1,dataPoints,1,2,1) 
   End Subroutine plotFit
   
   Subroutine plotStyle(dataObj, marker, linestyle, dataSetIn)
@@ -209,14 +241,18 @@ Module plot
       If(dataObj%key(k,1).eq.-1)Then
         Exit
       End If
-      key = k
+      If(dataObj%dataSetType(k).eq.0)Then
+        key = k
+      End If  
     End Do
     If(Present(dataSetIn))Then
       keyIn = dataSetIn
       If(keyIn.lt.0)Then
         key = key + keyIn
-      End If
-    End If    
+      Else      
+        key = keyIn
+      End If     
+    End If      
 ! Set marker and linestyle
     dataObj%marker(key) = marker
     dataObj%linestyle(key) = linestyle    
@@ -239,8 +275,12 @@ Module plot
     Character(len=14) :: dpStr, dpStrA, dpStrB
     Character(len=12) :: arrayName, arrayNum, arrayNameX, arrayNameY
     Character(len=512) :: xLine, yLine
+    Character(len=512) :: pLine
     Integer(kind=StandardInteger) :: termExitStat  
-    Real(kind=DoubleReal) :: xMin, xMax, yMin, yMax
+    Real(kind=DoubleReal) :: x, y, xMin, xMax, yMin, yMax
+    Real(kind=DoubleReal), Dimension(1:10000,1:200) :: csvArray
+    Integer(kind=StandardInteger) :: maxRows, maxCols
+    Integer(kind=StandardInteger), Dimension(1:200) :: maxRowsArr
 ! Init vars    
     tempDirectory = settings%tempDirectory
     outputDirectory = settings%outputDirectory 
@@ -249,6 +289,9 @@ Module plot
     xMax = 0.0D0
     yMin = 0.0D0
     yMax = 0.0D0
+! --------------------------
+! Python File
+! --------------------------    
 ! Make temp random name
     fileName = RandName()    
 ! Open file
@@ -260,7 +303,13 @@ Module plot
     write(701,"(A)") "matplotlib.use('Agg')"
     write(701,"(A)") "import matplotlib.pyplot as plt"
 ! Set figure sizes
-    write(701,"(A)") "plt.figure(figsize=(1792/144, 1008/144), dpi=144)"    
+    pLine = BlankString(pLine)
+    pLine = "plt.figure(figsize=("
+    pLine = trim(pLine)//trim(IntToStr(settings%width))//"/"//trim(IntToStr(settings%dpi))//","
+    pLine = trim(pLine)//trim(IntToStr(settings%height))//"/"//trim(IntToStr(settings%dpi))//"),"
+    pLine = trim(pLine)//"dpi="//trim(IntToStr(settings%dpi))//")"
+    write(701,"(A)") trim(pLine)
+    !write(701,"(A)") "plt.figure(figsize=(1792/144, 1008/144), dpi=144)"    
 ! write data arrays
     Do k=1,size(dataObj%key,1)
       If(dataObj%key(k,1).lt.0)Then
@@ -341,12 +390,14 @@ Module plot
       write(arrayNum,"(I8)") k 
       arrayNameX = "arrayX_"//trim(adjustl(arrayNum))
       arrayNameY = "arrayY_"//trim(adjustl(arrayNum))
-      write(701,"(A)") "plt.plot("//trim(adjustl(arrayNameX))//","&
-          //trim(adjustl(arrayNameY))//", "&
-          //"marker='"//trim(adjustl(dataObj%marker(k)))//"',"& 
-          //"linestyle='"//trim(adjustl(dataObj%linestyle(k)))//"',"& 
-          //"label='"//trim(adjustl(dataObj%label(k)))//&
-          "')"
+      pLine = BlankString(pLine) 
+      pLine = "plt.plot("//trim(adjustl(arrayNameX))//","
+      pLine = trim(pLine)//trim(adjustl(arrayNameY))//","
+      pLine = trim(pLine)//"marker='"//trim(adjustl(dataObj%marker(k)))//"',"
+      pLine = trim(pLine)//"linestyle='"//trim(adjustl(dataObj%linestyle(k)))//"',"
+      pLine = trim(pLine)//"label='"//trim(adjustl(dataObj%label(k)))//"'"
+      pLine = trim(pLine)//")" 
+      write(701,"(A)") trim(pLine)
     End Do
 ! Write Titles
     write(701,"(A)") "plt.title('"//trim(settings%title)//"')"
@@ -373,7 +424,8 @@ Module plot
       write(701,"(A)") "plt.ylim("//dpStrA//","//dpStrB//")"  
     End If
 ! Set output file
-    write(701,"(A)") "plt.savefig('"//trim(outputDirectory)//"/"//trim(outputName)//"',dpi=144)"   
+    write(701,"(A)") "plt.savefig('"//trim(outputDirectory)//"/"//&
+    trim(outputName)//"',dpi="//trim(IntToStr(settings%dpi))//")"   
 ! Close file
     close(701)
 ! Run python and the file to create the chart
@@ -381,8 +433,85 @@ Module plot
     exitstat=termExitStat)
 ! Clean python file    
     If(settings%cleanPyFile)Then
-      !Call system("rm -f "//(trim(tempDirectory)//"/"//fileName//".py"))
-    End If      
+      Call system("rm -f "//(trim(tempDirectory)//"/"//fileName//".py"))
+    End If
+! --------------------------
+! Summary File
+! --------------------------    
+    If(dataObj%fittingSummaryFile)Then
+! Make temp random name
+      fileName = RandName()   
+      open(unit=702,file=(trim(tempDirectory)//"/summary_"//fileName//".txt"))
+      Do i=1,200
+        If(trim(dataObj%fittingText(i)).eq."")Then
+          Exit
+        Else
+          write(702,"(A)") trim(dataObj%fittingText(i))
+        End If
+      End Do
+! Close file
+      Close(702)
+    End If  
+! --------------------------
+! CSV File
+! --------------------------    
+    If(dataObj%dataFile)Then 
+! Make temp random name
+      fileName = RandName()   
+      open(unit=703,file=(trim(tempDirectory)//"/data"//fileName//".csv"))
+! Blank array    
+      csvArray = 0.0D0
+      maxRowsArr = 0
+      a = 0  
+      maxRows = 0
+      maxCols = 0
+! Loop through data sets        
+      Do k=1,size(dataObj%key,1)
+        If(dataObj%key(k,1).lt.0)Then
+          maxCols = k-1
+          Exit
+        End If
+! start-end      
+        iStart = dataObj%key(k,1)
+        iEnd = dataObj%key(k,2)
+        n = 0
+        a = a + 1
+        xLine = BlankString(xLine)
+! Loop through data points
+        Do i=iStart,iEnd
+          n = n + 1
+          csvArray(n,2*(a-1)+1) = dataObj%dataArr(i,1)
+          csvArray(n,2*(a-1)+2) = dataObj%dataArr(i,2)
+        End Do
+        maxRowsArr(a) = n
+        If(maxRows.lt.n)Then
+          maxRows = n
+        End If
+      End Do     
+! write to file
+      Do n=1,maxRows
+        pLine = BlankString(pLine)
+        Do i=1,maxCols
+          If(n.le.maxRowsArr(i))Then
+            x = csvArray(n,2*(i-1)+1)
+            y = csvArray(n,2*(i-1)+2)
+            pLine = Trim(pLine)//Trim(DpToStr(x))//&
+            ","//Trim(DpToStr(y))
+            If(i.lt.maxCols)Then
+              pLine = Trim(pLine)//","
+            End If
+          Else
+            pLine = Trim(pLine)//","
+            If(i.lt.maxCols)Then
+              pLine = Trim(pLine)//","
+            End If          
+          End If
+        End Do
+        write(703,"(A)") trim(pLine)
+      End Do
+! Close file
+      Close(703)
+    End If
   End Subroutine plotMake
   
   

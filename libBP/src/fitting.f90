@@ -10,21 +10,24 @@ Module fitting
   Use calcFunctions
   Use regression
   Use interpolation
+  Use splines
   Use lmaM
 ! Force declaration of all variables
   Implicit None
 ! Public variables  
+  Character(Len=128), Dimension(1:20) :: fittingReport
 ! Make private
   Private
 ! Public
 ! --variables--!
+  Public :: fittingReport
 ! --functions--!
   Public :: BirchMurnFit
   Public :: ExpFit
   Public :: SingleDecayFit
   Public :: DoubleDecayFit
   Public :: TripleDecayFit
-  Public :: FittingPoints
+  Public :: FittingPoints    
 ! Interfaces  
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -317,9 +320,6 @@ Module fitting
       End If
     End Do    
 ! Fit parameters
-    print *,parameters(1),parameters(2),parameters(3),parameters(4)
-    beta = LMA_Exp(0.5D0,parameters,4)
-    print *,"y",beta
     parameters = LMA(dataPoints, LMA_Exp, parameters)    
   End Function DoubleDecayFit
   
@@ -482,6 +482,7 @@ Module fitting
     parameters4 = 0.0D0
     parameters5 = 0.0D0
     parameters6 = 0.0D0    
+    fittingReport = BlankStringArray(fittingReport)
 ! Start/End x
     xStart = dataPointsIn(1,1)
     xEnd = dataPointsIn(pointsInCount,1)       
@@ -493,6 +494,12 @@ Module fitting
         dataPointsOut(i,1) = xStart+(i-1)*xInc
         dataPointsOut(i,2) = CalcPolynomial(parameters3,dataPointsOut(i,1))
       End Do
+      fittingReport(1) = "2nd Order Polynomial"
+      fittingReport(2) = "P(x)="&
+                         //trim(DpToStr(parameters3(1)))//"+"&
+                         //trim(DpToStr(parameters3(2)))//"x+"&
+                         //trim(DpToStr(parameters3(3)))//"x^2"
+      fittingReport(3) = "--------------------------------------------------------------"
     End If
     If(calcFunctionT(1:5).eq."POLY3")Then   ! Third order (4 params)
       parameters4 = PolyFit(dataPointsIn,3)
@@ -500,6 +507,13 @@ Module fitting
         dataPointsOut(i,1) = xStart+(i-1)*xInc
         dataPointsOut(i,2) = CalcPolynomial(parameters4,dataPointsOut(i,1))
       End Do
+      fittingReport(1) = "3rd Order Polynomial"
+      fittingReport(2) = "P(x)="&
+                         //trim(DpToStr(parameters4(1)))//"+"&
+                         //trim(DpToStr(parameters4(2)))//"x+"&
+                         //trim(DpToStr(parameters4(3)))//"x^2"&
+                         //trim(DpToStr(parameters4(4)))//"x^3"
+      fittingReport(3) = "--------------------------------------------------------------"
     End If
     If(calcFunctionT(1:5).eq."POLY4")Then   ! Fourth order (5 params)
       parameters5 = PolyFit(dataPointsIn,4)
@@ -507,6 +521,14 @@ Module fitting
         dataPointsOut(i,1) = xStart+(i-1)*xInc
         dataPointsOut(i,2) = CalcPolynomial(parameters5,dataPointsOut(i,1))
       End Do
+      fittingReport(1) = "4th Order Polynomial"
+      fittingReport(2) = "P(x)=("&
+                         //trim(DpToStr(parameters5(1)))//")+("&
+                         //trim(DpToStr(parameters5(2)))//")x+("&
+                         //trim(DpToStr(parameters5(3)))//")x^2+("&
+                         //trim(DpToStr(parameters5(4)))//")x^3+("&
+                         //trim(DpToStr(parameters5(5)))//")x^4"
+      fittingReport(3) = "--------------------------------------------------------------"
     End If
     If(calcFunctionT(1:5).eq."POLY5")Then   ! Fifth order (6 params)
       parameters6 = PolyFit(dataPointsIn,5)
@@ -514,6 +536,15 @@ Module fitting
         dataPointsOut(i,1) = xStart+(i-1)*xInc
         dataPointsOut(i,2) = CalcPolynomial(parameters6,dataPointsOut(i,1))
       End Do
+      fittingReport(1) = "5th Order Polynomial"
+      fittingReport(2) = "P(x)=("&
+                         //trim(DpToStr(parameters6(1)))//")+("&
+                         //trim(DpToStr(parameters6(2)))//")x+("&
+                         //trim(DpToStr(parameters6(3)))//")x^2+("&
+                         //trim(DpToStr(parameters6(4)))//")x^3+("&
+                         //trim(DpToStr(parameters6(5)))//")x^4+("&
+                         //trim(DpToStr(parameters6(6)))//")x^5"
+      fittingReport(3) = "--------------------------------------------------------------"
     End If    
 ! EXP fit
     If(calcFunctionT(1:7).eq."EXPFIT1")Then ! 1 term 
@@ -522,6 +553,11 @@ Module fitting
         dataPointsOut(i,1) = xStart+(i-1)*xInc
         dataPointsOut(i,2) = ExpCalc(dataPointsOut(i,1),parameters2)
       End Do
+      fittingReport(1) = "Exponential Fit, 1 term"
+      fittingReport(2) = "P(x)=("&
+                         //trim(DpToStr(parameters2(1)))//")exp[("&
+                         //trim(DpToStr(parameters2(2)))//")x]"
+      fittingReport(3) = "--------------------------------------------------------------"     
     End If
     If(calcFunctionT(1:7).eq."EXPFIT2")Then ! 2 terms 
       parameters4 = ExpFit(dataPointsIn,2)
@@ -529,6 +565,13 @@ Module fitting
         dataPointsOut(i,1) = xStart+(i-1)*xInc
         dataPointsOut(i,2) = ExpCalc(dataPointsOut(i,1),parameters4)
       End Do
+      fittingReport(1) = "Exponential Fit, 2 terms"
+      fittingReport(2) = "P(x)=("&
+                         //trim(DpToStr(parameters4(1)))//")exp[("&
+                         //trim(DpToStr(parameters4(2)))//")x]+("&
+                         //trim(DpToStr(parameters4(3)))//")exp[("&
+                         //trim(DpToStr(parameters4(4)))//")x]"
+      fittingReport(3) = "--------------------------------------------------------------"    
     End If
     If(calcFunctionT(1:7).eq."EXPFIT3")Then ! 3 terms 
       parameters6 = ExpFit(dataPointsIn,3)
@@ -536,20 +579,40 @@ Module fitting
         dataPointsOut(i,1) = xStart+(i-1)*xInc
         dataPointsOut(i,2) = ExpCalc(dataPointsOut(i,1),parameters6)
       End Do
+      fittingReport(1) = "Exponential Fit, 3 terms"
+      fittingReport(2) = "P(x)=("&
+                         //trim(DpToStr(parameters6(1)))//")exp[("&
+                         //trim(DpToStr(parameters6(2)))//")x]+("&
+                         //trim(DpToStr(parameters6(3)))//")exp[("&
+                         //trim(DpToStr(parameters6(4)))//")x]+("&
+                         //trim(DpToStr(parameters6(5)))//")exp[("&
+                         //trim(DpToStr(parameters6(6)))//")x]"
+      fittingReport(3) = "--------------------------------------------------------------"   
     End If
 ! Bulk Modulus Fit
-    If(calcFunctionT(1:3).eq."BMR")Then   ! BM Restrict BP0
-      parameters6 = PolyFit(dataPointsIn,5)
+    If(calcFunctionT(1:3).eq."BM1")Then   ! BM Restrict BP0
+      parameters4 = BirchMurnFit(dataPointsIn,1.0D0,9.0D0)
       Do i=1,pointsOutCount
         dataPointsOut(i,1) = xStart+(i-1)*xInc
-        dataPointsOut(i,2) = CalcPolynomial(parameters6,dataPointsOut(i,1))
+        dataPointsOut(i,2) = BirchMurnCalc(dataPointsOut(i,1),parameters4)
       End Do
     End If   
+    If(calcFunctionT(1:3).eq."BM2")Then   ! BM
+      parameters4 = BirchMurnFit(dataPointsIn)
+      Do i=1,pointsOutCount
+        dataPointsOut(i,1) = xStart+(i-1)*xInc
+        dataPointsOut(i,2) = BirchMurnCalc(dataPointsOut(i,1),parameters4)
+      End Do
+    End If  
+! Spline Fit
+    If(calcFunctionT(1:6).eq."SPLINE")Then 
+      dataPointsOut = SplinePoints(dataPointsIn, pointsOutCount)
+    End If  
+! Interp Fit
+    If(calcFunctionT(1:6).eq."INTERP")Then 
+      dataPointsOut = SplinePoints(dataPointsIn, pointsOutCount)
+    End If  
     
-    !ExpFit(dataPoints,terms)
-    
-
-
 
   End Function FittingPoints
   
