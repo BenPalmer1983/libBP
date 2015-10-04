@@ -4,11 +4,18 @@ Module general
 ! --------------------------------------------------------------!
   Use kinds
   Use strings
+  Use rng
 ! Force declaration of all variables
   Implicit None
+! Public variables  
+!  Integer(kind=LongInteger) :: rfnLCG_n=0
+!  Integer(kind=LongInteger) :: rfnLCG_xn
 ! Make private
   Private
 ! Public
+! ---- Variables
+!  Public :: rfnLCG_n
+!  Public :: rfnLCG_xn
 ! ---- Functions
   Public :: GetClockTime
   Public :: dpToString
@@ -17,8 +24,6 @@ Module general
   Public :: makeDir
   Public :: rmFile
   Public :: rmDir
-  Public :: randFileName
-  Public :: tempFileName
   Public :: correctFilePath
   Public :: readFile
   Public :: extractArrayColumnDP
@@ -112,43 +117,6 @@ Module general
     Call system("rm -fR "//trim(path))
   End Subroutine rmDir
 
-  Subroutine randFileName(fileName)
-    Integer(kind=StandardInteger) :: i, characterNum
-    Character(len=8) :: fileName
-    Real(kind=DoubleReal) :: randNumber
-    Character(len=52), Parameter :: alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    fileName = "tmp     "
-    Do i=4,8
-      Call RANDOM_NUMBER(randNumber)
-      characterNum = Ceiling(52.0E0*randNumber+1.0E0)
-      If(characterNum.lt.1)Then
-        characterNum = 1
-      End If
-      If(characterNum.gt.52)Then
-        characterNum = 52
-      End If
-      fileName(i:i) = alpha(characterNum:characterNum)
-    End Do
-  End Subroutine randFileName
-
-  Subroutine tempFileName(fileName)
-    Integer(kind=StandardInteger) :: i, characterNum
-    Character(len=8) :: fileName
-    Real(kind=DoubleReal) :: randNumber
-    Character(len=52), Parameter :: alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    fileName = "tmp     "
-    Do i=4,8
-      Call RANDOM_NUMBER(randNumber)
-      characterNum = Ceiling(52.0E0*randNumber+1.0E0)
-      If(characterNum.lt.1)Then
-        characterNum = 1
-      End If
-      If(characterNum.gt.52)Then
-        characterNum = 52
-      End If
-      fileName(i:i) = alpha(characterNum:characterNum)
-    End Do
-  End Subroutine tempFileName
   
   Subroutine correctFilePath (filePath)
 ! Correct file path  

@@ -293,7 +293,7 @@ Module plot
 ! Python File
 ! --------------------------    
 ! Make temp random name
-    fileName = RandName()    
+    fileName = TempFileName()   
 ! Open file
     open(unit=701,file=(trim(tempDirectory)//"/"//fileName//".py"))
 ! write python headers
@@ -440,7 +440,7 @@ Module plot
 ! --------------------------    
     If(dataObj%fittingSummaryFile)Then
 ! Make temp random name
-      fileName = RandName()   
+      fileName = TempFileName() 
       open(unit=702,file=(trim(tempDirectory)//"/summary_"//fileName//".txt"))
       Do i=1,200
         If(trim(dataObj%fittingText(i)).eq."")Then
@@ -456,8 +456,8 @@ Module plot
 ! CSV File
 ! --------------------------    
     If(dataObj%dataFile)Then 
-! Make temp random name
-      fileName = RandName()   
+! Make temp random name      
+      fileName = TempFileName()  
       open(unit=703,file=(trim(tempDirectory)//"/data"//fileName//".csv"))
 ! Blank array    
       csvArray = 0.0D0
@@ -514,35 +514,5 @@ Module plot
     End If
   End Subroutine plotMake
   
-  
-
-! ------------------------------------------------------------------------!
-!                                                                         !
-! MODULE FUNCTIONS                                                        !
-!                                                                         !
-!                                                                         !
-! ------------------------------------------------------------------------!
-
-  Function RandName() RESULT (fileName)
-! force declaration of all variables
-    Implicit None  
-    Integer(kind=StandardInteger) :: i, characterNum
-    Character(len=8) :: fileName
-    Real(kind=DoubleReal) :: randNumber
-    Character(len=52), Parameter :: alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-! Prepare string
-    fileName = "tmp     "
-    Do i=4,8
-      Call RANDOM_NUMBER(randNumber)
-      characterNum = Ceiling(52.0E0*randNumber+1.0E0)
-      If(characterNum.lt.1)Then
-        characterNum = 1
-      End If
-      If(characterNum.gt.52)Then
-        characterNum = 52
-      End If
-      fileName(i:i) = alpha(characterNum:characterNum)
-    End Do
-  End Function RandName
 
 End Module plot

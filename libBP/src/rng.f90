@@ -10,17 +10,23 @@ Module rng
 ! Public variables  
   Integer(kind=LongInteger) :: randomLCG_n=0
   Integer(kind=LongInteger) :: randomLCG_xn
+  Integer(kind=LongInteger) :: randomLCG_R_n=0
+  Integer(kind=LongInteger) :: randomLCG_R_xn
 ! Make private
   Private
 ! Public
-! --variables--!
+! ---- Variables
   Public :: randomLCG_n
   Public :: randomLCG_xn
-! --functions--!
+  Public :: randomLCG_R_n
+  Public :: randomLCG_R_xn
+! ---- Functions
   Public :: RandomLCG
+  Public :: RandomLCG_R
   Public :: RandomInteger
   Public :: RandomFloat
   Public :: IntegerList
+! ---- Subroutines    
 ! Interfaces  
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -53,7 +59,7 @@ Module rng
 ! If first iteration
     If(randomLCG_n.eq.0)Then
       If(seed.eq.0)Then
-        seed = 12791244 ! Use default seed
+        seed = 12791244+45778951 ! Use default seed
       End If
       randomLCG_n = 0
       randomLCG_xn = seed
@@ -63,7 +69,40 @@ Module rng
 ! calculate
     randomLCG_xn = mod((a*randomLCG_xn+c),m)
     output = (1.0D0*randomLCG_xn)/(1.0D0*m)
-  End Function RandomLCG
+  End Function RandomLCG  
+  
+  Function RandomLCG_R() RESULT (output)
+! Random number - linear congruential generator
+! This function starts with a random seed
+    Implicit None ! Force declaration of all variables
+! Declare variables
+    Integer(kind=StandardInteger) :: i
+    Integer(kind=LongInteger) :: m, a, c, clockTime
+    Integer(kind=LongInteger) :: seed
+    Real(kind=DoubleReal) :: output
+! init
+    seed = 0
+    output = 0.0D0
+    m = 4294967296_LongInteger
+    a = 1103515245_LongInteger
+    c = 12345_LongInteger
+! If first iteration
+    If(randomLCG_R_n.eq.0)Then
+! Make "random" seed
+      Call SYSTEM_CLOCK(clockTime) ! "nano seconds" - well, an estimate
+      seed = mod(clockTime,m)      
+      Do i=1,10
+        seed = mod((a*seed+c),m)
+      End Do
+      randomLCG_R_n = 0
+      randomLCG_R_xn = seed
+    End If
+! Increment counter
+    randomLCG_R_n = randomLCG_R_n + 1
+! calculate
+    randomLCG_R_xn = mod((a*randomLCG_R_xn+c),m)
+    output = (1.0D0*randomLCG_R_xn)/(1.0D0*m)
+  End Function RandomLCG_R
   
   Function RandomInteger(lower,upper) RESULT (randInt)
 ! force declaration of all variables
