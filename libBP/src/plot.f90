@@ -103,6 +103,28 @@ Module plot
     settings%yMax=-1.1D99  
   End Subroutine plotInit
   
+  
+  Subroutine plotLoadData(filePath,fitList) 
+! Loads data from a csv file and fits each data set
+    Implicit None  ! Force declaration of all variables
+! In/Out:  Declare variables
+    Character(*) :: filePath, fitList
+! Private: Declare variables    
+    Character(Len=128), Dimension(1:10000) :: fileArray
+    Integer(kind=StandardInteger) :: rowCount
+! read file into array
+    Call readFile(filePath, fileArray, rowCount)
+    
+    
+    Real(kind=DoubleReal), Dimension(1:10000,1:200) :: csvArray
+    Integer(kind=StandardInteger) :: maxRows, maxCols
+    Integer(kind=StandardInteger), Dimension(1:200) :: maxRowsArr
+    
+
+    
+  End Subroutine plotLoadData
+  
+  
   Recursive Subroutine plotAdd(dataObj, dataArray, labelIn, fitListIn, rowStartIn, rowEndIn, colXIn, colYIn, fitAddIn) 
 ! Add data to the data object  
     Implicit None  ! Force declaration of all variables

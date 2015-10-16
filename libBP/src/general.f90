@@ -26,6 +26,7 @@ Module general
   Public :: rmDir
   Public :: correctFilePath
   Public :: readFile
+  Public :: explode
   Public :: extractArrayColumnDP
   Public :: extractArrayColumnInt
   Public :: swapArrayRows1D
@@ -183,7 +184,31 @@ Module general
 ! Close file
     close(4323)
   End Subroutine readFile
-
+  
+  Subroutine explode(inputString, fieldSplit, outputArray, outputCount)
+! In/Out:  Declare variables
+    Character(*) :: inputString
+    Character(*) :: fieldSplit
+    Character(Len=256), Dimension(1:10000) :: outputArray
+    Integer(kind=StandardInteger) :: outputCount
+! Private: Declare variables    
+    Character(Len(fieldSplit)) :: trialSegment
+    Integer(kind=StandardInteger) :: fieldCount
+    Integer(kind=StandardInteger) :: lenInput = len(inputString)
+    Integer(kind=StandardInteger) :: lenSplit = len(fieldSplit)
+    Integer(kind=StandardInteger) :: i, n, k
+! Init
+    outputCount = 0
+    If(lenInput.gt.lenSplit)Then
+      n = 0
+      fieldCount = 1
+      Do i=1,lenInput-lenSplit+1
+        trialSegment = substr(i:(i+lenSplit-1))
+        
+      
+      End Do
+    End If
+  End Subroutine explode
   
 ! ARRAYS
 
