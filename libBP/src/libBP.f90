@@ -25,7 +25,6 @@ Module libBP
   Use rngDist
   Use coordFunctions
   Use activityFunctions
-  Use specialistFunctions
   Use splines
   Use plotTypes
   Use plot

@@ -5,7 +5,7 @@ srcDirLib=$workingDirLib"/libBP/src"
 modDirLib=$workingDirLib"/libBP/mod"
 libDirLib=$workingDirLib"/libBP/lib"
 binDirLib=$workingDirLib"/libBP/bin"
-fortLine="mpif90 -O3 -g -Wall -Wno-unused-function \
+fortLine="mpif90 -g -Wall -Wno-unused-function \
 -fbounds-check -fcheck=all -mtune=native "  # -O3
 #----------------------------------------------------------------------------------
 mkdir -p $binDirLib
@@ -22,8 +22,8 @@ commandLine=$commandLine"laplaceTransforms.f90 linearAlgebra.f90 calcFunctions.f
 commandLine=$commandLine"solveFunctions.f90 functionPoints.f90 vectors.f90 regression.f90 "
 commandLine=$commandLine"interpolation.f90 newtonGauss.f90 lmaM.f90 "
 commandLine=$commandLine"fitting.f90 rngDist.f90 coordFunctions.f90 "
-commandLine=$commandLine"activityFunctions.f90 specialistFunctions.f90 "
-commandLine=$commandLine"splines.f90 plot.f90 "
+commandLine=$commandLine"activityFunctions.f90 "
+commandLine=$commandLine"splines.f90 fitting.f90 plot.f90 "
 commandLine=$commandLine"maths.f90 libBP.f90 "
 eval $commandLine
 eval "mv "$srcDirLib"/*.o "$binDirLib

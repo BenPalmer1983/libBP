@@ -34,6 +34,8 @@ Module plotTypes
     Integer(kind=StandardInteger) :: width=1792
     Integer(kind=StandardInteger) :: height=1008
     Logical ::               cleanPyFile=.true.
+    Logical ::               cleanGpFile=.true.
+    Logical ::               cleanGpLatexFile=.true.
   End Type  
   
   Type :: plotData
@@ -42,11 +44,16 @@ Module plotTypes
     Real(kind=DoubleReal), Dimension(1:10000,1:2) :: dataArr = 0.0D0
     Character(Len=10), Dimension(1:100) :: marker = "."
     Character(Len=10), Dimension(1:100) :: linestyle = "_"
-    Integer(kind=StandardInteger), Dimension(1:100) :: dataSetType=0  ! 0 = input, 1 = fit data set
-    Character(Len=128), Dimension(1:200) :: fittingText = ""
+    Integer(kind=StandardInteger), Dimension(1:100) :: dataSetType=0 
+    Character(Len=128), Dimension(1:200) :: fittingText = ""  ! POLY2,POLY3,POLY4,POLY5,EXPFIT1,EXPFIT2,EXPFIT3,BM1,BM2,SPLINE,SPLINE1,SPLINE3,SPLINE5,INTERP,INTERP3,INTERP4,INTERP5
     Integer(kind=StandardInteger) :: fittingTextLine = 0
     Logical :: fittingSummaryFile = .false.
     Logical :: dataFile = .false.
+    Logical :: gnuPlotFile = .true.
+    Logical :: gnuPlotLatexFile = .false.
+    Logical :: pyPlotFile = .false.
+    Character(Len=128) :: gplDir = ""                         ! directory tex and eps files are in relative to LaTeX main file e.g. chapter1/plots/
+    Integer(kind=StandardInteger) :: numFitPoints = 500
   End Type  
   
 ! Marker options:     point: "."  pixel: ","  circle: "o"  square: "s"  star: "*"
@@ -61,6 +68,7 @@ Module plot
 ! Setup Modules
   Use kinds
   Use strings
+  Use general
   Use plotTypes
   Use fitting
 ! Force declaration of all variables
@@ -144,7 +152,10 @@ Module plot
 ! Store data - key = k
     Do k=1,size(dataObj%key,1)
       If(dataObj%key(k,1).eq.-1)Then
-        If(k.eq.1)Then
+        If(k.eq.1)Then ! key = 1
+! init       
+       
+! set n        
           n = 0
         Else  
           n = dataObj%key(k-1,2)
@@ -170,7 +181,7 @@ Module plot
         n = n + 1
         If(fitList(i:i).eq.",".or.fitList(i:i).eq." ")Then
           keyFit = keyFit + 1
-          Call plotFit(dataObj, dataArray, label, rowStart, rowEnd, colX, colY, fitType, 200)
+          Call plotFit(dataObj, dataArray, label, rowStart, rowEnd, colX, colY, fitType, dataObj%numFitPoints)
           Call plotStyle(dataObj,",","--",keyFit)
           fitType = BlankString(fitType)
           n = 0
@@ -272,10 +283,14 @@ Module plot
     Character(len=128) :: tempDirectory 
     Character(len=128) :: outputDirectory 
     Character(len=64) :: outputName     
-    Character(len=14) :: dpStr, dpStrA, dpStrB
+    Character(len=256) :: csvFile 
+    Character(len=14) :: dpStr, dpStrA, dpStrB, intStrA, intStrB
     Character(len=12) :: arrayName, arrayNum, arrayNameX, arrayNameY
     Character(len=512) :: xLine, yLine
     Character(len=512) :: pLine
+    Character(len=128) :: cmdLine, gpDataLine 
+    Character(len=64) :: gpLabel   
+    Character(len=64) :: outputPy, outputGP 
     Integer(kind=StandardInteger) :: termExitStat  
     Real(kind=DoubleReal) :: x, y, xMin, xMax, yMin, yMax
     Real(kind=DoubleReal), Dimension(1:10000,1:200) :: csvArray
@@ -289,6 +304,17 @@ Module plot
     xMax = 0.0D0
     yMin = 0.0D0
     yMax = 0.0D0
+! Make directories    
+    Call makeDir(tempDirectory)
+    Call makeDir(outputDirectory)
+! File names 
+    If(dataObj%pyPlotFile.and.dataObj%gnuPlotFile)Then
+      outputPy = Trim(Adjustl(outputName))//"_py" 
+      outputGP =  Trim(Adjustl(outputName))//"_gp" 
+    Else
+      outputPy = Trim(Adjustl(outputName))
+      outputGP  = Trim(Adjustl(outputName))
+    End If  
 ! --------------------------
 ! Python File
 ! --------------------------    
@@ -387,6 +413,9 @@ Module plot
       If(dataObj%key(k,1).lt.0)Then
         Exit
       End If
+! prepare
+      dataObj%label(k) = CleanString(dataObj%label(k))
+! write
       write(arrayNum,"(I8)") k 
       arrayNameX = "arrayX_"//trim(adjustl(arrayNum))
       arrayNameY = "arrayY_"//trim(adjustl(arrayNum))
@@ -425,12 +454,14 @@ Module plot
     End If
 ! Set output file
     write(701,"(A)") "plt.savefig('"//trim(outputDirectory)//"/"//&
-    trim(outputName)//"',dpi="//trim(IntToStr(settings%dpi))//")"   
+    trim(outputPy)//"',dpi="//trim(IntToStr(settings%dpi))//")"   
 ! Close file
     close(701)
 ! Run python and the file to create the chart
-    Call execute_command_line("python "//trim(tempDirectory)//"/"//trim(fileName)//".py",&
-    exitstat=termExitStat)
+    If(dataObj%pyPlotFile)Then
+      Call execute_command_line("python "//trim(tempDirectory)//"/"//trim(fileName)//".py",&
+      exitstat=termExitStat)
+    End If  
 ! Clean python file    
     If(settings%cleanPyFile)Then
       Call system("rm -f "//(trim(tempDirectory)//"/"//fileName//".py"))
@@ -441,7 +472,7 @@ Module plot
     If(dataObj%fittingSummaryFile)Then
 ! Make temp random name
       fileName = TempFileName() 
-      open(unit=702,file=(trim(tempDirectory)//"/summary_"//fileName//".txt"))
+      open(unit=702,file=(trim(outputDirectory)//"/summary_"//fileName//".txt"))
       Do i=1,200
         If(trim(dataObj%fittingText(i)).eq."")Then
           Exit
@@ -453,12 +484,11 @@ Module plot
       Close(702)
     End If  
 ! --------------------------
-! CSV File
+! CSV File and GnuPlot
 ! --------------------------    
-    If(dataObj%dataFile)Then 
-! Make temp random name      
-      fileName = TempFileName()  
-      open(unit=703,file=(trim(tempDirectory)//"/data"//fileName//".csv"))
+    If(dataObj%dataFile.or.dataObj%gnuPlotFile)Then 
+      csvFile = trim(outputDirectory)//"/"//trim(settings%outputName)//".csv"
+      open(unit=703,file=trim(csvFile))
 ! Blank array    
       csvArray = 0.0D0
       maxRowsArr = 0
@@ -491,7 +521,24 @@ Module plot
 ! write to file
       Do n=1,maxRows
         pLine = BlankString(pLine)
-        Do i=1,maxCols
+        If(n.eq.1)Then
+          Do k=1,maxCols
+            gpLabel = BlankString(gpLabel)
+            gpLabel = Trim(Adjustl(dataObj%label(k)))
+            If(gpLabel(1:1).eq." ")Then
+              write(intStrA,"(I8)") k
+              gpLabel = "Set "//Trim(Adjustl(intStrA))            
+            End If
+            If(k.eq.maxCols)Then
+              pLine = Trim(pLine)//" -, "//Trim(gpLabel)
+            Else
+              pLine = Trim(pLine)//" -, "//Trim(gpLabel)//", "            
+            End If
+          End Do  
+          write(703,"(A)") trim(pLine)
+          pLine = BlankString(pLine)
+        End If  
+        Do i=1,maxCols        
           If(n.le.maxRowsArr(i))Then
             x = csvArray(n,2*(i-1)+1)
             y = csvArray(n,2*(i-1)+2)
@@ -511,7 +558,113 @@ Module plot
       End Do
 ! Close file
       Close(703)
+! --------------------------
+! GNU Plot File (only if CSV file has been made)
+! --------------------------    
+      If(dataObj%gnuPlotFile)Then 
+! Make temp random name      
+        fileName = TempFileName()  
+! GnuPlot file
+! ------------------        
+        open(unit=704,file=(trim(tempDirectory)//"/gp_"//fileName//".gplot"))
+        write(704,"(A)") "set terminal pngcairo size "&
+        //trim(IntToStr(settings%width))//","&
+        //trim(IntToStr(settings%height))//" enhanced font 'Verdana,10'"
+        write(704,"(A)") "set output "//char(34)//trim(outputDirectory)//"/"&
+        //trim(outputGp)//".png"//char(34)
+        write(704,"(A)") "set grid xtics mxtics ytics mytics back"
+        write(704,"(A)") "set datafile separator "//char(34)//","//char(34)
+        write(704,"(A)") "set title "//char(34)//trim(settings%title)//char(34)
+        write(704,"(A)") "set xlabel "//char(34)//trim(settings%xAxis)//char(34)
+        write(704,"(A)") "set ylabel "//char(34)//trim(settings%yAxis)//char(34)
+        write(704,"(A)") "set key autotitle columnheader"
+        write(704,"(A)") "plot \"
+! Loop through data sets        
+        Do k=1,size(dataObj%key,1)
+          If(dataObj%key(k,1).lt.0)Then
+            maxCols = k-1
+            Exit
+          End If
+        End Do  
+        Do k=1,maxCols
+          write(intStrA,"(I8)") (2*(k-1)+1)
+          write(intStrB,"(I8)") (2*(k-1)+2)
+          gpDataLine = BlankString(gpDataLine)
+          If(k.gt.1)Then  ! start with a comma
+            gpDataLine = ","
+          End If
+          gpDataLine = trim(gpDataLine)//"'"//trim(csvFile)//"' using "&
+          //trim(adjustl(intStrA))//":"//trim(adjustl(intStrB))//" with lines "          
+          If(k.lt.maxCols)Then  ! end line with new line \ unless last data set
+           gpDataLine = trim(gpDataLine)//" \ "
+          End If
+          write(704,"(A)") trim(gpDataLine)
+        End Do
+        Close(704)
+! Run gnuplot        
+        cmdLine = "gnuplot "//trim(tempDirectory)//"/gp_"//fileName//".gplot"
+        Call execute_command_line(trim(cmdLine),&
+        exitstat=termExitStat)
+! Clean gp file    
+        If(settings%cleanGpFile)Then
+          Call system("rm -f "//trim(tempDirectory)//"/gp_"//fileName//".gplot")
+        End If 
+      End If      
+! GnuPlot file for latex
+! ------------------       
+      If(dataObj%gnuPlotLatexFile)Then  
+        open(unit=705,file=(trim(tempDirectory)//"/gpl_"//fileName//".gplot"))
+        write(705,"(A)") "cd "//char(34)//trim(outputDirectory)//char(34)
+        write(705,"(A)") "set terminal epslatex monochrome size 17cm,9.56cm "
+        write(705,"(A)") "set output "//char(34)//trim(outputGp)//".tex"//char(34)
+        write(705,"(A)") "set grid xtics mxtics ytics mytics back"
+        write(705,"(A)") "set datafile separator "//char(34)//","//char(34)
+        write(705,"(A)") "set title "//char(34)//trim(settings%title)//char(34)
+        write(705,"(A)") "set xlabel "//char(34)//trim(settings%xAxis)//char(34)
+        write(705,"(A)") "set ylabel "//char(34)//trim(settings%yAxis)//char(34)
+        write(705,"(A)") "set key autotitle columnheader"
+        write(705,"(A)") "plot \"   
+! Loop through data sets        
+        Do k=1,size(dataObj%key,1)
+          If(dataObj%key(k,1).lt.0)Then
+            maxCols = k-1
+            Exit
+          End If
+        End Do  
+        Do k=1,maxCols
+          write(intStrA,"(I8)") (2*(k-1)+1)
+          write(intStrB,"(I8)") (2*(k-1)+2)
+          gpDataLine = BlankString(gpDataLine)
+          If(k.gt.1)Then  ! start with a comma
+            gpDataLine = ","
+          End If
+          gpDataLine = trim(gpDataLine)//"'"//trim(csvFile)//"' using "&
+          //trim(adjustl(intStrA))//":"//trim(adjustl(intStrB))//" with lines "          
+          If(k.lt.maxCols)Then  ! end line with new line \ unless last data set
+           gpDataLine = trim(gpDataLine)//" \ "
+          End If
+          write(705,"(A)") trim(gpDataLine)
+        End Do
+        Close(705)
+! Run gnuplot        
+        cmdLine = "gnuplot "//trim(tempDirectory)//"/gpl_"//fileName//".gplot"
+        Call execute_command_line(trim(cmdLine),&
+        exitstat=termExitStat)
+! Clean gpl file  
+        If(settings%cleanGpLatexFile)Then
+          !Call system("rm -f "//trim(tempDirectory)//"/gpl_"//fileName//".gplot")
+        End If
+      End If
+! Clean csv      
+      If(dataObj%dataFile)Then
+        ! Keep csv file
+      Else
+        Call system("rm -f "//trim(csvFile))
+      End If      
     End If
+    
+    
+    
   End Subroutine plotMake
   
 

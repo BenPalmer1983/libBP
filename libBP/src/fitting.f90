@@ -28,6 +28,10 @@ Module fitting
   Public :: DoubleDecayFit
   Public :: TripleDecayFit
   Public :: FittingPoints    
+  Public :: FitEmbeddingA  
+  Public :: FitEmbeddingB
+  Public :: FitEmbeddingC
+  Public :: FitDensity
 ! Interfaces  
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -92,8 +96,7 @@ Module fitting
     parameters = LMA(points, LMA_BirchMurn, coefficients,.true.,lower,upper)
 ! store LMA if better
     coefficients = parameters    
-  End Function BirchMurnFit
-  
+  End Function BirchMurnFit  
   
 ! ----------------------------------------------------------------------------------
 ! EXP fitting - single term, double terms, triple terms
@@ -116,8 +119,7 @@ Module fitting
     If(terms.eq.3)Then
       parameters = TripleDecayFit(dataPoints)
     End If
-  End Function ExpFit
-  
+  End Function ExpFit  
     
   Function SingleDecayFit(dataPoints) RESULT (parameters)
 ! Fit aexp(mx) to data
@@ -375,7 +377,7 @@ Module fitting
             Do i=1,size(dataPoints,1)
               xReg(i,3) = exp(lC*dataPoints(i,1))
             End Do
-            linCoeffs = LinearRegression(yReg, xReg)
+            linCoeffs = LinearRegression(xReg, yReg)
             linRSS = TripleDecayFitRSS(dataPoints, linCoeffs(1), lA, linCoeffs(2), lB, linCoeffs(3), lC)
             If(iA.eq.1.and.iB.eq.2.and.iC.eq.3)Then
               linBestRSS = linRSS
@@ -419,29 +421,291 @@ Module fitting
     End Do    
 ! Fit parameters
     parameters = LMA(dataPoints, LMA_Exp, parameters)       
-  End Function TripleDecayFit  
+  End Function TripleDecayFit   
   
   
   
-  Function TripleDecayFitRSS(dataPoints, a, lA, b, lB, c, lC) RESULT (rss)
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  Function FitEmbeddingA(dataPoints, startPoint, endPoint) Result (coefficients)
+! Fit embedding functional to data points
+! E(p) = a + bp^0.5 + cp^2
+!
     Implicit None  !Force declaration of all variables
 ! Declare variables
-    Integer(kind=StandardInteger) :: i
+! In
     Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
-    Real(kind=DoubleReal) :: a, b, c, lA, lB, lC, rss, x, y
-    rss = 0.0D0
-    Do i=1,size(dataPoints,1)
-      x = dataPoints(i,1)
-      y = a*exp(lA*x)+b*exp(lB*x)+c*exp(lC*x)
-      rss = rss + (dataPoints(i,2)-y)**2
+    Integer(kind=StandardInteger) :: startPoint, endPoint
+! Out
+    Real(kind=DoubleReal), Dimension(1:2) :: coefficients
+! Private
+    Integer(kind=StandardInteger) :: i, j
+    Real(kind=DoubleReal), Dimension(1:(endPoint-startPoint+1),1:2) :: X
+    Real(kind=DoubleReal), Dimension(1:(endPoint-startPoint+1)) :: Y    
+! Adjust to fit in data array size
+    If(startPoint.lt.1)Then
+      startPoint = 1
+    End If
+    If(endPoint.gt.size(dataPoints,1).or.endPoint.lt.1)Then
+      endPoint = size(dataPoints,1)
+    End If
+! Prepare matrices
+    j = 0
+    Do i=startPoint,endPoint
+      j = j + 1
+      X(j,1) = 1.0D0
+      X(j,2) = 1.0D0*dataPoints(i,1)**0.5D0
+      Y(j) = 1.0D0*dataPoints(i,2)
     End Do
-  End Function TripleDecayFitRSS
+! Calculate
+    coefficients = LinearRegression(X,Y)
+  End Function FitEmbeddingA
+! ---------------------------------------------------------------------------------- 
+  Function FitEmbeddingB(dataPoints, startPoint, endPoint) Result (coefficients)
+! Fit embedding functional to data points
+! E(p) = a + bp^0.5 + cp^2
+!
+    Implicit None  !Force declaration of all variables
+! Declare variables
+! In
+    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
+    Integer(kind=StandardInteger) :: startPoint, endPoint
+! Out
+    Real(kind=DoubleReal), Dimension(1:3) :: coefficients
+! Private
+    Integer(kind=StandardInteger) :: i, j
+    Real(kind=DoubleReal), Dimension(1:(endPoint-startPoint+1),1:3) :: X
+    Real(kind=DoubleReal), Dimension(1:(endPoint-startPoint+1)) :: Y    
+! Adjust to fit in data array size
+    If(startPoint.lt.1)Then
+      startPoint = 1
+    End If
+    If(endPoint.gt.size(dataPoints,1).or.endPoint.lt.1)Then
+      endPoint = size(dataPoints,1)
+    End If
+! Prepare matrices
+    j = 0
+    Do i=startPoint,endPoint
+      j = j + 1
+      X(j,1) = 1.0D0
+      X(j,2) = 1.0D0*dataPoints(i,1)**0.5D0
+      X(j,3) = 1.0D0*dataPoints(i,1)**2.0D0
+      Y(j) = 1.0D0*dataPoints(i,2)
+    End Do
+! Calculate
+    coefficients = LinearRegression(X,Y)
+  End Function FitEmbeddingB
+! ----------------------------------------------------------------------------------
+  Function FitEmbeddingC(dataPoints, startPoint, endPoint) Result (coefficients)
+! Fit embedding functional to data points
+! E(p) = a + bp^0.5 + cp^2 + dp^4
+!
+    Implicit None  !Force declaration of all variables
+! Declare variables
+! In
+    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
+    Integer(kind=StandardInteger) :: startPoint, endPoint
+! Out
+    Real(kind=DoubleReal), Dimension(1:4) :: coefficients
+! Private
+    Integer(kind=StandardInteger) :: i, j
+    Real(kind=DoubleReal), Dimension(1:(endPoint-startPoint+1),1:4) :: X
+    Real(kind=DoubleReal), Dimension(1:(endPoint-startPoint+1)) :: Y    
+! Adjust to fit in data array size
+    If(startPoint.lt.1)Then
+      startPoint = 1
+    End If
+    If(endPoint.gt.size(dataPoints,1).or.endPoint.lt.1)Then
+      endPoint = size(dataPoints,1)
+    End If
+! Prepare matrices
+    j = 0
+    Do i=startPoint,endPoint
+      j = j + 1
+      X(j,1) = 1.0D0
+      X(j,2) = 1.0D0*dataPoints(i,1)**0.5D0
+      X(j,3) = 1.0D0*dataPoints(i,1)**2.0D0
+      X(j,4) = 1.0D0*dataPoints(i,1)**4.0D0
+      Y(j) = 1.0D0*dataPoints(i,2)
+    End Do
+! Calculate
+    coefficients = LinearRegression(X,Y)
+  End Function FitEmbeddingC
+  
+
+  Function FitDensity(dataPoints, startPointIn, endPointIn) Result (coefficients)
+! Fit embedding functional to data points
+!
+    Implicit None  !Force declaration of all variables
+! Declare variables
+! In
+    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
+    Integer(kind=StandardInteger), Optional :: startPointIn, endPointIn
+    Integer(kind=StandardInteger) :: startPoint, endPoint
+! Out
+    Real(kind=DoubleReal), Dimension(1:4) :: coefficients
+! Private
+    Integer(kind=StandardInteger) :: i
+    Integer(kind=StandardInteger) :: pointCount
+! optional arguments
+    startPoint = 1
+    endPoint = size(dataPoints,1)
+    If(Present(startPointIn))Then
+      startPoint = startPointIn
+    End If
+    If(Present(endPointIn))Then
+      endPoint = endPointIn
+    End If
+! Adjust to fit in data array size
+    If(startPoint.lt.1)Then
+      startPoint = 1
+    End If
+    If(endPoint.gt.size(dataPoints,1))Then
+      endPoint = size(dataPoints,1)
+    End If
+! pointCount
+    pointCount = 0
+    Do i=startPoint,endPoint
+      If(dataPoints(i,1).ne.0.0D0)Then
+        pointCount = pointCount + 1
+      End If
+    End Do
+! run subroutine
+    Call FitDensity_Process(dataPoints, pointCount, startPoint, endPoint, coefficients)
+  End Function FitDensity
+! ----------
+  Subroutine FitDensity_Process(dataPoints, pointCount, startPoint, endPoint, coefficients)
+    Implicit None  !Force declaration of all variables
+! Declare variables
+! In
+    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
+    Integer(kind=StandardInteger) :: pointCount, startPoint, endPoint
+    Real(kind=DoubleReal), Dimension(1:4) :: coefficients
+! Private
+    Real(kind=DoubleReal), Dimension(1:pointCount,1:2) :: fitPoints, fitPointsLinReg
+    Integer(kind=StandardInteger) :: i, n, k
+    Real(kind=DoubleReal), Dimension(1:6) :: parameters, parameters_Last
+! Lin reg
+    Integer(kind=StandardInteger) :: iA, iB, gridSize, searchBetterFailCount
+    Real(kind=DoubleReal) :: maxLambda, minLambda
+    Real(kind=DoubleReal) :: lambdaInc
+    Real(kind=DoubleReal) :: lA, lB
+    Real(kind=DoubleReal), Dimension(1:pointCount) :: yReg
+    Real(kind=DoubleReal), Dimension(1:pointCount,1:2) :: xReg
+    Real(kind=DoubleReal), Dimension(1:2) :: linCoeffs
+    Real(kind=DoubleReal) :: linRSS, linBestRSS, bestRSSLastSearch
+! p(r) = a r^2 exp(-br^2) + c r^2 exp(-dr^2)
+    i = 0
+    Do k=startPoint,endPoint
+      If(dataPoints(k,1).ne.0.0D0)Then
+        i = i + 1
+        fitPoints(i,1) = dataPoints(k,1)
+        fitPoints(i,2) = dataPoints(k,2)
+        fitPointsLinReg(i,1) = (dataPoints(k,1)**2)
+        fitPointsLinReg(i,2) = dataPoints(k,2)/(dataPoints(k,1)**2)
+      End If
+    End Do
+! Linear reg to find starting point
+! fit p(r)/r^2 = a exp(-br^2) + c exp(-dr^2)
+! Init vars
+    parameters = 0.0D0
+    parameters_Last = 0.0D0
+    linBestRSS = 0.0D0
+    bestRSSLastSearch = 0.0D0
+! Set grid size
+    gridSize = 15
+! Make y array
+    Do i=1,pointCount
+      yReg(i) = fitPointsLinReg(i,2)
+    End Do
+! Loop through combinations
+    maxLambda = 0.5D0
+    searchBetterFailCount = 0
+    Do n=1,20   ! expand search "area"
+      maxLambda = 2.0D0*maxLambda   ! grid from -maxLambda to maxLambda
+      minLambda = -1.0D0 * maxLambda
+      lambdaInc = (2*maxLambda)/(gridSize-1)
+      Do iA=1,gridSize-1
+        lA = minLambda + (iA-1)*lambdaInc
+        Do i=1,pointCount
+          xReg(i,1) = exp(lA*fitPointsLinReg(i,1))    ! Make x1 array (for the A exp(lA x) function)
+        End Do
+        Do iB=iA+1,gridSize
+          lB = minLambda + (iB-1)*lambdaInc
+          Do i=1,pointCount
+            xReg(i,2) = exp(lB*fitPointsLinReg(i,1))  ! Make x1 array (for the A exp(lA x) function)
+          End Do
+          linCoeffs = LinearRegression(xReg,yReg)
+          linRSS = DoubleDecayFitRSS(fitPointsLinReg, linCoeffs(1), lA, linCoeffs(2), lB)
+          If(iA.eq.1.and.iB.eq.2)Then
+            linBestRSS = linRSS
+            parameters(1) = linCoeffs(1)
+            parameters(2) = lA
+            parameters(3) = linCoeffs(2)
+            parameters(4) = lB
+          Else
+            If(linRSS.lt.linBestRSS)Then
+              linBestRSS = linRSS
+              parameters(1) = linCoeffs(1)
+              parameters(2) = lA
+              parameters(3) = linCoeffs(2)
+              parameters(4) = lB
+            End If
+          End If
+        End Do
+      End Do
+      If(linBestRSS.gt.bestRSSLastSearch)Then
+        searchBetterFailCount = searchBetterFailCount + 1
+        If(searchBetterFailCount.eq.2)Then ! If two successive fails, break out
+          Exit
+        End If
+      Else
+        searchBetterFailCount = 0 ! reset fail count
+        bestRSSLastSearch = linBestRSS
+      End If
+    End Do
+! --------------------------------------------------
+! LMA
+! --------------------------------------------------
+    Do i=1,4
+      If(isnan(parameters(i)))Then  ! If fitting fails
+        parameters(i) = 1.0D0
+      End If
+    End Do
+! Fit parameters
+    parameters = LMA(fitPoints, LMA_ExpDens, parameters)   
+! Store results
+    Do i=1,4
+      coefficients(i) = parameters(i)
+    End Do
+  End Subroutine FitDensity_Process
+
+
+
+
+  
+  
+  
+  
   
     
   
 ! ----------------------------------------------------------------------------------
 ! Fitting Points
 ! Use fitting functions, regression functions
+!
+!
+!
+!
 ! ---------------------------------------------------------------------------------- 
 
   Function FittingPoints(dataPointsIn, calcFunction, pointsOutCount, optArgA, optArgB) Result (dataPointsOut)
@@ -605,15 +869,61 @@ Module fitting
       End Do
     End If  
 ! Spline Fit
-    If(calcFunctionT(1:6).eq."SPLINE")Then 
-      dataPointsOut = SplinePoints(dataPointsIn, pointsOutCount)
+    If(calcFunctionT(1:7).eq."SPLINE1")Then 
+      dataPointsOut = SplinePoints(dataPointsIn, pointsOutCount,1)
+    End If  
+    If(calcFunctionT(1:7).eq."SPLINE3")Then 
+      dataPointsOut = SplinePoints(dataPointsIn, pointsOutCount,3)
+    End If  
+    If(calcFunctionT(1:7).eq."SPLINE ".or.calcFunctionT(1:7).eq."SPLINE5")Then 
+      dataPointsOut = SplinePoints(dataPointsIn, pointsOutCount,5)
     End If  
 ! Interp Fit
-    If(calcFunctionT(1:6).eq."INTERP")Then 
-      dataPointsOut = SplinePoints(dataPointsIn, pointsOutCount)
+    If(calcFunctionT(1:7).eq."INTERP3")Then 
+      dataPointsOut = InterpPoints(dataPointsIn, pointsOutCount,3)
+    End If 
+    If(calcFunctionT(1:7).eq."INTERP ".or.calcFunctionT(1:7).eq."INTERP4")Then 
+      dataPointsOut = InterpPoints(dataPointsIn, pointsOutCount,4)
     End If  
+    If(calcFunctionT(1:7).eq."INTERP5")Then 
+      dataPointsOut = InterpPoints(dataPointsIn, pointsOutCount,5)
+    End If 
+  End Function FittingPoints  
+  
+! ----------------------------------------------------------------------------------
+! RSS Functions
+!
+!
+!
+!
+! ---------------------------------------------------------------------------------- 
     
-
-  End Function FittingPoints
+  Function DoubleDecayFitRSS(dataPoints, a, b, lA, lB) RESULT (rss)
+    Implicit None  !Force declaration of all variables
+! Declare variables
+    Integer(kind=StandardInteger) :: i
+    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
+    Real(kind=DoubleReal) :: a, b, lA, lB, rss, x, y
+    rss = 0.0D0
+    Do i=1,size(dataPoints,1)
+      x = dataPoints(i,1)
+      y = a*exp(lA*x)+b*exp(lB*x)
+      rss = rss + (dataPoints(i,2)-y)**2
+    End Do
+  End Function DoubleDecayFitRSS    
+    
+  Function TripleDecayFitRSS(dataPoints, a, lA, b, lB, c, lC) RESULT (rss)
+    Implicit None  !Force declaration of all variables
+! Declare variables
+    Integer(kind=StandardInteger) :: i
+    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
+    Real(kind=DoubleReal) :: a, b, c, lA, lB, lC, rss, x, y
+    rss = 0.0D0
+    Do i=1,size(dataPoints,1)
+      x = dataPoints(i,1)
+      y = a*exp(lA*x)+b*exp(lB*x)+c*exp(lC*x)
+      rss = rss + (dataPoints(i,2)-y)**2
+    End Do
+  End Function TripleDecayFitRSS
   
 End Module fitting

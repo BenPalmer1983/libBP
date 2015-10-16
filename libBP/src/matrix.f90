@@ -19,6 +19,8 @@ Module matrix
   Public :: MatMult
   Public :: ScalarMult  
   Public :: PivotMatrix
+  Public :: PositiveYMatrix
+  Public :: LnYMatrix
 ! --- Subroutines
   Public :: LUDecomp
 ! Interfaces  
@@ -431,5 +433,44 @@ Module matrix
     End If    
   End Subroutine PivotMatrix_2D
   
-
+  
+  Subroutine PositiveYMatrix(X,Y)
+! Make Y side positive
+! Used when taking ln of Y matrix to fit exp(P(x)) spline
+    Implicit None ! Force declaration of all variables
+! In:      Declare variables
+    Real(kind=DoubleReal), Dimension(:,:) :: X
+    Real(kind=DoubleReal), Dimension(:) :: Y
+! Private: Declare variables
+    Integer(kind=StandardInteger) :: row, col
+! Check X and Y size
+    If(Size(X,1).eq.Size(Y,1))Then
+      Do row=1,Size(Y,1)
+        If(Y(row).lt.0.0D0)Then
+          Y(row) = -1.0D0*Y(row)
+          Do col=1,size(X,1)
+            X(row,col) = -1.0D0*X(row,col)
+          End Do
+        End If
+      End Do
+    End If  
+  End Subroutine PositiveYMatrix  
+  
+  Subroutine LnYMatrix(Y)
+! Take LN of Y matrix
+! Used to fit exp(P(x)) spline
+    Implicit None ! Force declaration of all variables
+! In:      Declare variables
+    Real(kind=DoubleReal), Dimension(:) :: Y
+! Private: Declare variables
+    Integer(kind=StandardInteger) :: row
+! Check X and Y size
+    Do row=1,Size(Y,1)
+      If(Y(row).eq.0.0D0)Then
+        Y(row) = 1.0D-99 ! stop 0.0D0 breaking it
+      End If
+      Y(row) = log(Y(row))
+    End Do 
+  End Subroutine LnYMatrix  
+    
 End Module matrix

@@ -9,7 +9,7 @@ Module splines
   Use calcFunctions
   Use regression
   Use interpolation
-  Use specialistFunctions
+  Use fitting
 ! Force declaration of all variables
   Implicit None
 ! Make private
@@ -20,7 +20,6 @@ Module splines
   Public :: SplineExpThird
   Public :: SplineExpFifth
   Public :: SplineNodes
-  Public :: SplineNodesV
   Public :: SplineComplete
   Public :: VaryNode
   Public :: SplinePoints
@@ -36,16 +35,26 @@ Module splines
 ! MODULE FUNCTIONS
 ! ---------------------------------------------------------
 
-  Function SplineAB(pointA, pointB) RESULT (coefficients)
+  Function SplineAB(pointA, pointB, splineTypeIn) RESULT (coefficients)
 ! Polynomial to spline between points A and B - x, f(x), f'(x) and f''(x) supplied
     Implicit None  !Force declaration of all variables
-! Declare variables
+! In:      Declare variables
     Real(kind=DoubleReal), Dimension(:) :: pointA  !1 x, 2 f(x), 3 f'(x), 4 f''(x)....
     Real(kind=DoubleReal), Dimension(:) :: pointB  !1 x, 2 f(x), 3 f'(x), 4 f''(x)....
-    Real(kind=DoubleReal), Dimension(1:(2*(size(pointA,1)-1))) :: coefficients, yMatrix
+    Integer(kind=StandardInteger), Optional :: splineTypeIn  ! 1 = P(x), 2 = exp
+! Out:     Declare variables    
+    Real(kind=DoubleReal), Dimension(1:(2*(size(pointA,1)-1))) :: coefficients
+! Private: Declare variables
+    Integer(kind=StandardInteger) :: splineType
+    Real(kind=DoubleReal), Dimension(1:(2*(size(pointA,1)-1))) :: yMatrix
     Real(kind=DoubleReal), Dimension(1:(2*(size(pointA,1)-1)),1:(2*(size(pointA,1)-1))) :: xMatrix
     Integer(kind=StandardInteger) :: i, j, n, row, col, matrixSize, matrixHalfSize, expt
     Real(kind=DoubleReal) :: x, coeff
+! Optional arguments    
+    splineType = 1
+    If(Present(splineTypeIn))Then
+      splineType = splineTypeIn
+    End If
 ! Init variables
     coefficients = 0.0D0
     yMatrix = 0.0D0
@@ -91,8 +100,18 @@ Module splines
       row = row + 1
       yMatrix(row) = pointB(i+1)
     End Do
+! Spline Type 1    
+    If(splineType.eq.1)Then
 ! solve equation
-    coefficients = SolveLinearSet(xMatrix,yMatrix)
+      coefficients = SolveLinearSet(xMatrix,yMatrix)
+    End If  
+! Spline Type 1    
+    If(splineType.eq.2)Then
+! solve equation
+      Call PositiveYMatrix(xMatrix,yMatrix)
+      Call LnYMatrix(yMatrix)
+      coefficients = SolveLinearSet(xMatrix,yMatrix)
+    End If        
   End Function SplineAB
   
   
@@ -207,73 +226,10 @@ Module splines
     yMatrix(6) = fppxB
 ! solve
     coefficients = SolveLinearSet(xMatrix,yMatrix) ! By LU decomposition
-! xMatrix = InvertMatrix(xMatrix)               ! By matrix inversion
-! coefficients = matmul(xMatrix,yMatrix)
   End Function SplineExpFifth
 
-  Function SplineNodes(inputNodes,numDataPoints,startPointIn,endPointIn) RESULT (dataPoints)
-! Input nodes x,f(x) for each node, calculate f'(x) and f''(x) from the set of nodes, then spline
-    Implicit None  !Force declaration of all variables
-! Declare variables
-    Real(kind=DoubleReal), Dimension(:,:) :: inputNodes
-    Real(kind=DoubleReal), Dimension(1:size(inputNodes,1),1:4) :: splinePoints
-    Integer(kind=StandardInteger) :: i, numDataPoints, nodeKey
-    Real(kind=DoubleReal), Dimension(1:numDataPoints,1:4) :: dataPoints
-    Real(kind=DoubleReal) :: x, xStart, xEnd, xIncrement
-    Integer(kind=StandardInteger), Optional :: startPointIn, endPointIn
-    Integer(kind=StandardInteger) :: startPoint, endPoint
-    Real(kind=DoubleReal), Dimension(1:6) :: coefficients
-    Real(kind=DoubleReal), Dimension(1:4) :: pointA, pointB
-    Real(kind=DoubleReal), Dimension(1:3) :: yArray
-! Init Variables
-    dataPoints = 0.0D0
-    startPoint = 1
-    endPoint = size(inputNodes,1)
-    If(Present(startPointIn))Then
-      startPoint = startPointIn
-    End If
-    If(Present(endPointIn))Then
-      endPoint = endPointIn
-    End If
-! set f'(x) and f''(x)
-    Do i=startPoint,endPoint
-      x = inputNodes(i,1)
-      yArray = PointInterp(inputNodes,x,3,2,startPoint,endPoint)
-      splinePoints(i,1) = x
-      splinePoints(i,2) = yArray(1)
-      splinePoints(i,3) = yArray(2)
-      splinePoints(i,4) = yArray(3)
-    End Do
-! Calculate spline data points
-    xStart = splinePoints(startPoint,1)
-    xEnd = splinePoints(endPoint,1)
-    xIncrement = (xEnd-xStart)/(1.0D0*numDataPoints-1)
-! Loop through data points
-    nodeKey = startPoint-1
-    x = xStart
-    Do i=1,numDataPoints
-      If((i.eq.1).or.(x.ge.inputNodes(nodeKey+1,1).and.(nodeKey+1).lt.endPoint))Then
-        nodeKey = nodeKey + 1
-        pointA(1) = inputNodes(nodeKey,1)
-        pointA(2) = inputNodes(nodeKey,2)
-        pointA(3) = inputNodes(nodeKey,3)
-        pointA(4) = inputNodes(nodeKey,4)
-        pointB(1) = inputNodes(nodeKey+1,1)
-        pointB(2) = inputNodes(nodeKey+1,2)
-        pointB(3) = inputNodes(nodeKey+1,3)
-        pointB(4) = inputNodes(nodeKey+1,4)
-        coefficients = SplineAB(pointA, pointB)
-      End If
-      dataPoints(i,1) = x
-      dataPoints(i,2) = CalcPolynomial (coefficients, x, 0)
-      dataPoints(i,3) = CalcPolynomial (coefficients, x, 1)
-      dataPoints(i,4) = CalcPolynomial (coefficients, x, 2)
-! Increment x
-      x = x + xIncrement
-    End Do
-  End Function SplineNodes
-
-  Function SplineNodesV(inputNodes,numDataPoints,startPoint,endPoint,dataSize,splineTypeIn,forceCalcDervIn) RESULT (dataPoints)
+  Function SplineNodes(inputNodes,numDataPoints,startPoint,endPoint,&
+  dataSize,splineTypeIn,forceCalcDervIn,interpNodeIn) RESULT (dataPoints)
 ! Input nodes x,f(x) for each node, calculate f'(x) and f''(x) from the set of nodes, then spline
 ! inputNodes         array of nodes
 ! numDataPoints      total data points to output
@@ -285,22 +241,27 @@ Module splines
     Implicit None  !Force declaration of all variables
 ! Declare variables - arg
     Real(kind=DoubleReal), Dimension(:,:) :: inputNodes
-    Integer(kind=StandardInteger) :: numDataPoints, startPoint, endPoint, nodeCount, dataSize
+    Integer(kind=StandardInteger) :: numDataPoints, startPoint, endPoint, dataSize
+    Integer(kind=StandardInteger), Dimension(1:1000), Optional :: splineTypeIn
+    Logical, Dimension(1:1000), Optional :: forceCalcDervIn, interpNodeIn
 ! Declare variables - priv
     Real(kind=DoubleReal), Dimension(1:(endPoint-startPoint+1),1:4) :: splineNodeArr
-    Integer(kind=StandardInteger) :: i, nodeKey
+    Real(kind=DoubleReal), Dimension(1:(endPoint-startPoint+1),1:2) :: interpeNodesArr
+    Integer(kind=StandardInteger) :: i, j, nodeKey, nodeCount, nodeCountI, interpKey
     Real(kind=DoubleReal), Dimension(1:dataSize,1:4) :: dataPoints
     Real(kind=DoubleReal) :: x, xStart, xEnd, xIncrement
     Real(kind=DoubleReal), Dimension(1:6) :: coefficients
     Real(kind=DoubleReal), Dimension(1:4) :: expThird
     Real(kind=DoubleReal), Dimension(1:6) :: expFifth, polyFitCoeffs
-    Real(kind=DoubleReal), Dimension(1:4) :: embFunc, densFunc
+    Real(kind=DoubleReal), Dimension(1:4) :: embFuncC, densFunc
     Real(kind=DoubleReal), Dimension(1:4) :: pointA, pointB
-    Real(kind=DoubleReal), Dimension(1:3) :: yArray
-    Integer(kind=StandardInteger), Dimension(1:1000), Optional :: splineTypeIn
-    Integer(kind=StandardInteger), Dimension(1:1000) :: splineType
-    Logical, Dimension(1:1000), Optional :: forceCalcDervIn
-    Logical, Dimension(1:1000) :: forceCalcDerv
+    Real(kind=DoubleReal), Dimension(1:3) :: pointAA, pointBB
+    Real(kind=DoubleReal), Dimension(1:3) :: yArray, embFuncB
+    Real(kind=DoubleReal), Dimension(1:2) :: embFuncA
+    Integer(kind=StandardInteger), Dimension(1:1000) :: splineType, nodeMap
+    !Integer(kind=StandardInteger), Dimension(1:1000,1:2) :: nodeMap
+    Logical, Dimension(1:1000) :: forceCalcDerv, interpNode
+    Real(kind=DoubleReal), Dimension(1:4,1:2) :: interpPoints
 ! optional arguments
     splineType = 1   ! set to standard 5th order polynomial  1 a+bx+...  2 exp(a+bx+...)
     If(present(splineTypeIn))Then
@@ -310,8 +271,13 @@ Module splines
     If(present(forceCalcDervIn))Then  ! Interp between nodes to calc f'(x) and f''(x)
       forceCalcDerv = forceCalcDervIn
     End If
-    nodeCount = endPoint - startPoint + 1
+    interpNode = .true.
+    If(present(interpNodeIn))Then  ! Interp between nodes to calc f'(x) and f''(x)
+      interpNode = interpNodeIn
+    End If
 ! Init Variables
+    nodeMap = 0
+    interpPoints = 0.0D0
     dataPoints = 0.0D0
     If(startPoint.eq.0)Then
       startPoint = 1
@@ -319,26 +285,51 @@ Module splines
     If(endPoint.eq.0)Then
       endPoint = size(inputNodes,1)
     End If
-! Transfer nodes from inputNodes to splineNodeArr
+! Make array of points used for interpolation
+    j = 0
     nodeKey = 0
+    nodeCountI = 0
     Do i=startPoint,endPoint
       nodeKey = nodeKey + 1
+      If(interpNode(nodeKey))Then
+        j = j + 1    
+        interpeNodesArr(j,1) = inputNodes(i,1) 
+        interpeNodesArr(j,2) = inputNodes(i,2) 
+        nodeMap(nodeKey) = j
+      End If
+    End Do  
+    nodeCountI = j
+! Transfer nodes from inputNodes to splineNodeArr and calculate 1st/2nd derivatives
+    nodeKey = 0
+    nodeCount = 0
+    Do i=startPoint,endPoint
+      nodeKey = nodeKey + 1
+! don't change x/y values
       splineNodeArr(nodeKey,1) = inputNodes(i,1)
       splineNodeArr(nodeKey,2) = inputNodes(i,2)
-      splineNodeArr(nodeKey,3) = inputNodes(i,3)
-      splineNodeArr(nodeKey,4) = inputNodes(i,4)
-    End Do
-! If required, set f'(x) and f''(x)
-    Do nodeKey=1,nodeCount
+! If calculate 1st/2nd deriv
       If(forceCalcDerv(nodeKey))Then
-        x = splineNodeArr(nodeKey,1)
-        yArray = PointInterp(splineNodeArr,x,4,2,1,nodeCount)
-        splineNodeArr(nodeKey,1) = x
-        splineNodeArr(nodeKey,2) = yArray(1)
-        splineNodeArr(nodeKey,3) = yArray(2)
-        splineNodeArr(nodeKey,4) = yArray(3)
-      End If
+        x = inputNodes(i,1)
+        interpKey = nodeMap(nodeKey) - 1
+        If(interpKey.lt.1)Then
+          interpKey = 1
+        End If
+        If(interpKey.gt.(nodeCountI-3))Then
+          interpKey = (nodeCountI-3)
+        End If
+        Do j=1,4
+          interpPoints(j,1) = interpeNodesArr(interpKey+j-1,1)
+          interpPoints(j,2) = interpeNodesArr(interpKey+j-1,2)
+        End Do
+        splineNodeArr(nodeKey,3) = InterpLagrange(x,interpPoints,1)
+        splineNodeArr(nodeKey,4) = InterpLagrange(x,interpPoints,2)        
+      Else
+! Else store input value      
+        splineNodeArr(nodeKey,3) = inputNodes(i,3)
+        splineNodeArr(nodeKey,4) = inputNodes(i,4) 
+      End If  
     End Do
+    nodeCount = nodeKey
 ! Calculate spline data points
     xStart = splineNodeArr(1,1)
     xEnd = splineNodeArr(nodeCount,1)
@@ -361,15 +352,21 @@ Module splines
           coefficients = SplineAB(pointA, pointB)
         End If
         If(splineType(nodeKey).eq.2)Then           ! exp(3rd order)
-          expThird = SplineExpThird(pointA(1),pointA(2),pointA(3),&
-          pointB(1),pointB(2),pointB(3))
+          pointAA(1) = pointA(1)
+          pointAA(2) = pointA(2)
+          pointAA(3) = pointA(3)
+          pointBB(1) = pointB(1)
+          pointBB(2) = pointB(2)
+          pointBB(3) = pointB(3)        
+          expThird = SplineAB(pointAA, pointBB, 2)
         End If
         If(splineType(nodeKey).eq.3)Then           ! exp(5th order)
           expFifth = SplineExpFifth(pointA(1),pointA(2),pointA(3),pointA(4),&
           pointB(1),pointB(2),pointB(3),pointB(4))
         End If
         If(splineType(nodeKey).eq.4.and.nodeKey.eq.1)Then           ! embedding function F(p) = a+bp^0.5+bp^2+dp^4
-          embFunc = FitEmbedding(splineNodeArr,1,nodeCount)
+          embFuncC = FitEmbeddingC(splineNodeArr,1,nodeCount)
+          
         End If
         If(splineType(nodeKey).eq.5.and.nodeKey.eq.1)Then           ! density function p(r) = a r^2 exp(b r^2) + c r^2 exp(d r^2)
           densFunc = FitDensity(splineNodeArr,1,nodeCount)
@@ -377,8 +374,14 @@ Module splines
         If(splineType(nodeKey).eq.6.and.nodeKey.eq.1)Then           ! density function p(r) = 5th order poly
           polyFitCoeffs = PolyFit(splineNodeArr,5)
         End If
+        If(splineType(nodeKey).eq.7.and.nodeKey.eq.1)Then           ! embedding function F(p) = a+bp^0.5+bp^2
+          embFuncB = FitEmbeddingB(splineNodeArr,1,nodeCount)
+        End If
+        If(splineType(nodeKey).eq.8.and.nodeKey.eq.1)Then           ! embedding function F(p) = a+bp^0.5
+          embFuncA = FitEmbeddingA(splineNodeArr,1,nodeCount)
+        End If
       End If
-      If(splineType(nodeKey).eq.1)Then
+      If(splineType(nodeKey).eq.1)Then    
         dataPoints(i,1) = x
         dataPoints(i,2) = CalcPolynomial(coefficients, x, 0)
         dataPoints(i,3) = CalcPolynomial(coefficients, x, 1)
@@ -398,9 +401,10 @@ Module splines
       End If
       If(splineType(nodeKey).eq.4)Then
         dataPoints(i,1) = x
-        dataPoints(i,2) = embFunc(1)+embFunc(2)*x**0.5D0+embFunc(3)*x**2.0D0+embFunc(4)*x**4.0D0
-        dataPoints(i,3) = 0.5D0*embFunc(2)*x**(-0.5D0)+2.0D0*embFunc(3)*x+4.0D0*embFunc(4)*x**3.0D0
-        dataPoints(i,4) = -0.25D0*embFunc(2)*x**(-1.5D0)+2.0D0*embFunc(3)+12.0D0*embFunc(4)*x**2.0D0
+        yArray = EmbeddingC(x,embFuncC)
+        dataPoints(i,2) = yArray(1)
+        dataPoints(i,3) = yArray(2)
+        dataPoints(i,4) = yArray(3)
       End If
       If(splineType(nodeKey).eq.5)Then
         dataPoints(i,1) = x
@@ -414,10 +418,24 @@ Module splines
         dataPoints(i,3) = CalcPolynomialExp(polyFitCoeffs, x, 1)
         dataPoints(i,4) = CalcPolynomialExp(polyFitCoeffs, x, 2)
       End If
+      If(splineType(nodeKey).eq.7)Then
+        dataPoints(i,1) = x
+        yArray = EmbeddingB(x,embFuncB)
+        dataPoints(i,2) = yArray(1)
+        dataPoints(i,3) = yArray(2)
+        dataPoints(i,4) = yArray(3)
+      End If
+      If(splineType(nodeKey).eq.8)Then
+        dataPoints(i,1) = x
+        yArray = EmbeddingA(x,embFuncA)
+        dataPoints(i,2) = yArray(1)
+        dataPoints(i,3) = yArray(2)
+        dataPoints(i,4) = yArray(3)
+      End If
 ! Increment x
       x = x + xIncrement
     End Do
-  End Function SplineNodesV
+  End Function SplineNodes
 
   Function SplineComplete(inputPoints,interpSizeIn) RESULT (splinePoints)
 ! Complete missing points f'(x) f''(x) by interpolation
@@ -505,23 +523,33 @@ Module splines
 ! Spline Fitting
 ! ---------------------------------------------
   
-  Function SplinePoints(dataPointsIn, pointsOutCount) RESULT (dataPointsOut)
+  Function SplinePoints(dataPointsIn, pointsOutCount,splineOrderIn) RESULT (dataPointsOut)
 ! Force declaration of all variables
     Implicit None
 ! In:      Declare variables
     Real(kind=DoubleReal), Dimension(:,:) :: dataPointsIn
     Integer(kind=StandardInteger) :: pointsOutCount
+    Integer(kind=StandardInteger), Optional :: splineOrderIn
 ! Out:     Declare variables
     Real(kind=DoubleReal), Dimension(1:pointsOutCount,1:2) :: dataPointsOut
 ! Private: Declare variables
-    Integer(kind=StandardInteger) :: i, j, n, k, pointsInCount
+    Integer(kind=StandardInteger) :: i, j, n, k, pointsInCount, splineOrder
     Real(kind=DoubleReal) :: x
     Real(kind=DoubleReal) :: xStart,xEnd,xInc
     Real(kind=DoubleReal) :: xUpper,xLower
     Real(kind=DoubleReal) :: xA, xB
     Real(kind=DoubleReal), Dimension(1:4,1:2) :: interpArray
-    Real(kind=DoubleReal), Dimension(1:4) :: A, B
-    Real(kind=DoubleReal), Dimension(1:6) :: coefficients
+    Real(kind=DoubleReal), Dimension(1:2) :: A_A, B_A
+    Real(kind=DoubleReal), Dimension(1:3) :: A_B, B_B
+    Real(kind=DoubleReal), Dimension(1:4) :: A_C, B_C
+    Real(kind=DoubleReal), Dimension(1:2) :: coefficients_A
+    Real(kind=DoubleReal), Dimension(1:4) :: coefficients_B
+    Real(kind=DoubleReal), Dimension(1:6) :: coefficients_C
+! Optional  
+    splineOrder = 5  
+    If(Present(splineOrderIn))Then
+      splineOrder = splineOrderIn
+    End If
 ! Init
     pointsInCount = size(dataPointsIn,1)
     xStart = dataPointsIn(1,1)    
@@ -558,22 +586,53 @@ Module splines
         interpArray = 0.0D0
         Do j=1,4
           interpArray(j,1) = dataPointsIn(k+(j-1),1)
-          interpArray(j,2) = dataPointsIn(k+(j-1),2)      
+          interpArray(j,2) = dataPointsIn(k+(j-1),2)       
         End Do
-        A(1) = xA
-        A(2) = InterpLagrange(xA,interpArray,0)
-        A(3) = InterpLagrange(xA,interpArray,1)
-        A(4) = InterpLagrange(xA,interpArray,2)
-        B(1) = xB
-        B(2) = InterpLagrange(xB,interpArray,0)
-        B(3) = InterpLagrange(xB,interpArray,1)
-        B(4) = InterpLagrange(xB,interpArray,2)
-! Spline        
-        coefficients = SplineAB(A,B)
+! 1st order spline
+        If(splineOrder.eq.1)Then
+          A_A(1) = xA
+          A_A(2) = InterpLagrange(xA,interpArray,0)
+          B_A(1) = xB
+          B_A(2) = InterpLagrange(xB,interpArray,0)
+          coefficients_A = SplineAB(A_A,B_A)
+        End If 
+! 3rd order spline
+        If(splineOrder.eq.3)Then
+          A_B(1) = xA
+          A_B(2) = InterpLagrange(xA,interpArray,0)
+          A_B(3) = InterpLagrange(xA,interpArray,1)
+          B_B(1) = xB
+          B_B(2) = InterpLagrange(xB,interpArray,0)
+          B_B(3) = InterpLagrange(xB,interpArray,1)
+          coefficients_B = SplineAB(A_B,B_B)
+        End If       
+! 5th order spline
+        If(splineOrder.eq.5)Then
+          A_C(1) = xA
+          A_C(2) = InterpLagrange(xA,interpArray,0)
+          A_C(3) = InterpLagrange(xA,interpArray,1)
+          A_C(4) = InterpLagrange(xA,interpArray,2)
+          B_C(1) = xB
+          B_C(2) = InterpLagrange(xB,interpArray,0)
+          B_C(3) = InterpLagrange(xB,interpArray,1)
+          B_C(4) = InterpLagrange(xB,interpArray,2)
+          coefficients_C = SplineAB(A_C,B_C)
+          print *,A_C(1),A_C(2),A_C(3),A_C(4)
+          print *,B_C(1),B_C(2),B_C(3),B_C(4)
+          print *,""
+        End If     
       End If
 ! store output points
       dataPointsOut(i,1) = x
-      dataPointsOut(i,2) = CalcPolynomial(coefficients,x)
+      If(splineOrder.eq.1)Then
+        dataPointsOut(i,2) = CalcPolynomial(coefficients_A,x)
+      End If
+      If(splineOrder.eq.3)Then
+        dataPointsOut(i,2) = CalcPolynomial(coefficients_B,x)
+      End If
+      If(splineOrder.eq.5)Then
+        dataPointsOut(i,2) = CalcPolynomial(coefficients_C,x)
+      End If
     End Do
   End Function SplinePoints
   

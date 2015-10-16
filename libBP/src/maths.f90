@@ -25,8 +25,7 @@ Module maths
   Use rngDist
   Use coordFunctions
   Use activityFunctions
-  Use specialistFunctions
+  Use splines
+  Use plotTypes
   Use plot
-  
-
 End Module maths

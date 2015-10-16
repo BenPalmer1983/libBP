@@ -19,6 +19,7 @@ Module lmaM
   Public :: LMA_Polynomial
   Public :: LMA_BirchMurn
   Public :: LMA_Exp
+  Public :: LMA_ExpDens
 ! Interfaces  
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -329,6 +330,17 @@ Module lmaM
     Real(kind=DoubleReal) :: y
     y = ExpCalc(x,parameters)    
   End Function LMA_Exp
+
+  Function LMA_ExpDens(x,parameters,pSize) RESULT (y)
+! Density function  p(r) = ar^2 exp(br^2) + cr^2 exp(dr^2)  
+    Implicit None  !Force declaration of all variables
+    Integer(kind=StandardInteger), Intent(IN) ::  pSize
+    Real(kind=DoubleReal), Dimension(1:pSize), Intent(IN) :: parameters
+    Real(kind=DoubleReal), Intent(IN) :: x
+    Real(kind=DoubleReal) :: y
+    y = parameters(1)*x**2*exp(parameters(2)*x**2)+&
+    parameters(3)*x**2*exp(parameters(4)*x**2)    
+  End Function LMA_ExpDens
 
 
    

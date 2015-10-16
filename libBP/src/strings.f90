@@ -34,6 +34,7 @@ Module strings
   Public :: DpToStr
   Public :: RandName
   Public :: TempFileName
+  Public :: CleanString
 ! ---- Subroutines  
   Public :: randCharacter
   
@@ -242,6 +243,8 @@ Module strings
   End Function DpToStr
   
   Function RandName(randSwitchIn, prefixIn) Result (randNameOut)
+! Make a random 8 character "name"
+    Implicit None  ! Force declaration of all variables  
 ! In:      Declare variables
     Logical, Optional :: randSwitchIn
     Character(*), Optional :: prefixIn
@@ -276,10 +279,11 @@ Module strings
         randNameOut(i:i) = randChar
       End If
     End Do
-  End Function RandName
-  
+  End Function RandName  
     
   Function TempFileName(randSwitchIn) Result (fileNameOut)
+! Make random name for temp file
+    Implicit None  ! Force declaration of all variables  
 ! In:      Declare variables
     Logical, Optional :: randSwitchIn
 ! Out:     Declare variables    
@@ -296,7 +300,30 @@ Module strings
 ! Make name    
     fileNameOut = RandName(randSwitch, "tmp")  
   End Function TempFileName
-  
+      
+  Function CleanString(stringIn) Result (stringOut)
+! Clean a string - a-z A-Z 0-9 space
+    Implicit None  ! Force declaration of all variables 
+! In:      Declare variables
+    Character(*) :: stringIn  
+! Out:     Declare variables  
+    Character(Len(stringIn)) :: stringOut     
+! Private: Declare variables
+    Integer(kind=StandardInteger) :: i, n, charVal
+! Blank output string
+    stringOut = BlankString(stringOut)
+    n = 0
+    Do i=1,len(stringIn)
+      charVal = ichar(stringIn(i:i))
+      If(charVal.eq.32.or.&
+      (charVal.ge.48.and.charVal.le.57).or.&
+      (charVal.ge.65.and.charVal.le.90).or.&
+      (charVal.ge.97.and.charVal.le.122))Then
+        n = n + 1
+        stringOut(n:n) = stringIn(i:i)
+      End If
+    End Do
+  End Function CleanString
   
   
   

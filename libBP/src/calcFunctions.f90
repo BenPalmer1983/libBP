@@ -17,6 +17,9 @@ Module calcFunctions
   Public :: BirchMurnCalc
   Public :: Zbl
   Public :: ZblFull
+  Public :: EmbeddingA
+  Public :: EmbeddingB
+  Public :: EmbeddingC
 ! Interfaces  
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -258,5 +261,71 @@ Module calcFunctions
     ddy = termFa*termGc+2*termFb*termGb+termFc*termGa
     yArray(3) = ddy
   End Function ZblFull
+  
+      
+  Function EmbeddingA(x, parameters) RESULT (yArray)
+! E(p) = a + bp^0.5 , E'(p) = 0.5bp^-0.5 , E''(p) = -0.25bp^-1.5
+    Implicit None   ! Force declaration of all variables
+! In:      Declare variables
+    Real(kind=DoubleReal) :: x
+    Real(kind=DoubleReal), Dimension(1:2) :: parameters
+! Out:     Declare variables
+    Real(kind=DoubleReal), Dimension(1:3) :: yArray
+! Private: Declare variables
+! Init
+    yArray = 0.0D0
+! Calculation
+    yArray(1) = parameters(1) + parameters(2)*x**0.5D0
+    yArray(2) = 0.5D0 * parameters(2)*x**(-0.5D0)
+    yArray(3) = -0.25D0 * parameters(2)*x**(-1.5D0)
+  End Function EmbeddingA
+        
+  Function EmbeddingB(x, parameters) RESULT (yArray)
+! E(p) = a + bp^0.5 + cp^2 , E'(p) = 0.5bp^-0.5 + 2cp , E''(p) = -0.25bp^-1.5 + 2c
+    Implicit None   ! Force declaration of all variables
+! In:      Declare variables
+    Real(kind=DoubleReal) :: x
+    Real(kind=DoubleReal), Dimension(1:3) :: parameters
+! Out:     Declare variables
+    Real(kind=DoubleReal), Dimension(1:3) :: yArray
+! Private: Declare variables
+! Init
+    yArray = 0.0D0
+! Calculation
+    yArray(1) = parameters(1) + parameters(2)*x**0.5D0 + parameters(3)*x**2.0D0
+    yArray(2) = 0.5D0*parameters(2)*x**(-0.5D0) + 2.0D0*parameters(3)*x
+    yArray(3) = -0.25D0*parameters(2)*x**(-1.5D0) + 2.0D0*parameters(3)
+  End Function EmbeddingB
+        
+  Function EmbeddingC(x, parameters) RESULT (yArray)
+! E(p) = a + bp^0.5 + cp^2 + dc^4 , E'(p) = 0.5bp^-0.5 + 2cp + 4dc^3 , E''(p) = -0.25bp^-1.5 + 2c + 12dc^2
+    Implicit None   ! Force declaration of all variables
+! In:      Declare variables
+    Real(kind=DoubleReal) :: x
+    Real(kind=DoubleReal), Dimension(1:4) :: parameters
+! Out:     Declare variables
+    Real(kind=DoubleReal), Dimension(1:3) :: yArray
+! Private: Declare variables
+! Init
+    yArray = 0.0D0
+! Calculation
+    yArray(1) = parameters(1) + parameters(2)*x**0.5D0 + parameters(3)*x**2.0D0 + parameters(4)*x**4.0D0
+    yArray(2) = 0.5D0*parameters(2)*x**(-0.5D0) + 2.0D0*parameters(3)*x + 4.0D0*parameters(4)*x**3.0D0
+    yArray(3) = -0.25D0*parameters(2)*x**(-1.5D0) + 2.0D0*parameters(3) + 12.0D0*parameters(4)*x**2.0D0
+  End Function EmbeddingC
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
 End Module calcFunctions

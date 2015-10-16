@@ -5,6 +5,7 @@ Module interpolation
   Use kinds
   Use constants
   Use matrix
+  Use linearAlgebra
 ! Force declaration of all variables
   Implicit None
 ! Public variables  
@@ -16,6 +17,7 @@ Module interpolation
   Public :: InterpLagrange
   Public :: PointInterp
   Public :: InterpPoints
+  Public :: FullInterp
 ! Interfaces  
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -302,12 +304,13 @@ Module interpolation
 ! Interpolation Fitting
 ! ---------------------------------------------
   
-  Function InterpPoints(dataPointsIn, pointsOutCount) RESULT (dataPointsOut)
+  Function InterpPoints(dataPointsIn, pointsOutCount, interpNodes) RESULT (dataPointsOut)
 ! Force declaration of all variables
     Implicit None
 ! In:      Declare variables
     Real(kind=DoubleReal), Dimension(:,:) :: dataPointsIn
     Integer(kind=StandardInteger) :: pointsOutCount
+    Integer(kind=StandardInteger) :: interpNodes
 ! Out:     Declare variables
     Real(kind=DoubleReal), Dimension(1:pointsOutCount,1:2) :: dataPointsOut
 ! Private: Declare variables
@@ -316,7 +319,7 @@ Module interpolation
     Real(kind=DoubleReal) :: xStart,xEnd,xInc
     Real(kind=DoubleReal) :: xUpper,xLower
     Real(kind=DoubleReal) :: xA, xB
-    Real(kind=DoubleReal), Dimension(1:4,1:2) :: interpArray
+    Real(kind=DoubleReal), Dimension(1:interpNodes,1:2) :: interpArray
 ! Init
     pointsInCount = size(dataPointsIn,1)
     xStart = dataPointsIn(1,1)    
@@ -342,16 +345,16 @@ Module interpolation
         End Do
         xA = dataPointsIn(n,1)
         xB = dataPointsIn(n+1,1)
-! Interp node start (four point interp 1,(2),3,4)
+! Interp node start (e.g. four point interp 1,(2),3,4)
         k = n - 1
         If(k.lt.1)Then
           k = 1
         End If
-        If((k+3).gt.pointsInCount)Then
-          k = pointsInCount-3
+        If((k+(interpNodes-1)).gt.pointsInCount)Then
+          k = pointsInCount-(interpNodes-1)
         End If
         interpArray = 0.0D0
-        Do j=1,4
+        Do j=1,interpNodes
           interpArray(j,1) = dataPointsIn(k+(j-1),1)
           interpArray(j,2) = dataPointsIn(k+(j-1),2)      
         End Do
@@ -361,6 +364,36 @@ Module interpolation
       dataPointsOut(i,2) = InterpLagrange(x,interpArray,0)
     End Do
   End Function InterpPoints
+  
+  
+  
+  
+  
+  
+  Function FullInterp(dataPoints) RESULT (coefficients)
+! Ax = y
+    Implicit None ! Force declaration of all variables
+! In:      Declare variables
+    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
+! Out:     Declare variables
+    Real(kind=DoubleReal), Dimension(1:size(dataPoints,1)) :: coefficients
+! Private: Declare variables
+    Real(kind=DoubleReal), Dimension(1:size(dataPoints,1),1:size(dataPoints,1)) :: A
+    Real(kind=DoubleReal), Dimension(1:size(dataPoints,1)) :: Y
+    Integer(kind=StandardInteger) :: row, col, matSize
+! Init
+    matSize = size(dataPoints,1)
+! Make Y matrix and A matrix    
+    Do row = 1,matSize
+      Do col = 1,matSize
+        A(row,col) = 1.0D0*dataPoints(row,1)**(col-1.0D0)         
+      End Do  
+      Y(row) = 1.0D0*dataPoints(row,2)
+    End Do
+! Solve
+    coefficients = SolveLinearSet(A,Y) 
+  End Function FullInterp
+  
   
 
 End Module interpolation
