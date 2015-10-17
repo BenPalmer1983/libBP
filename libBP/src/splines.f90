@@ -617,9 +617,6 @@ Module splines
           B_C(3) = InterpLagrange(xB,interpArray,1)
           B_C(4) = InterpLagrange(xB,interpArray,2)
           coefficients_C = SplineAB(A_C,B_C)
-          print *,A_C(1),A_C(2),A_C(3),A_C(4)
-          print *,B_C(1),B_C(2),B_C(3),B_C(4)
-          print *,""
         End If     
       End If
 ! store output points

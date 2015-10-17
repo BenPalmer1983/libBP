@@ -19,7 +19,8 @@
 Module plotTypes
 ! Setup Modules
   Use kinds
-  Type :: plotSettings
+  
+  Type :: plotData    
     Character(len=128) ::    tempDirectory 
     Character(len=128) ::    outputDirectory 
     Character(len=64) ::     outputName 
@@ -35,15 +36,14 @@ Module plotTypes
     Integer(kind=StandardInteger) :: height=1008
     Logical ::               cleanPyFile=.true.
     Logical ::               cleanGpFile=.true.
-    Logical ::               cleanGpLatexFile=.true.
-  End Type  
-  
-  Type :: plotData
+    Logical ::               cleanGpLatexFile=.true.  
     Character(Len=32), Dimension(1:100) :: label = "                "
     Integer(kind=StandardInteger), Dimension(1:100,1:2) :: key = -1
     Real(kind=DoubleReal), Dimension(1:10000,1:2) :: dataArr = 0.0D0
     Character(Len=10), Dimension(1:100) :: marker = "."
     Character(Len=10), Dimension(1:100) :: linestyle = "_"
+    Character(Len=32), Dimension(1:100) :: gpLinestyle = "points                          "    ! points, lines, lines lt 1 dt 3
+    Integer(kind=StandardInteger) :: gpLineColour=0 
     Integer(kind=StandardInteger), Dimension(1:100) :: dataSetType=0 
     Character(Len=128), Dimension(1:200) :: fittingText = ""  ! POLY2,POLY3,POLY4,POLY5,EXPFIT1,EXPFIT2,EXPFIT3,BM1,BM2,SPLINE,SPLINE1,SPLINE3,SPLINE5,INTERP,INTERP3,INTERP4,INTERP5
     Integer(kind=StandardInteger) :: fittingTextLine = 0
@@ -56,11 +56,16 @@ Module plotTypes
     Integer(kind=StandardInteger) :: numFitPoints = 500
   End Type  
   
-! Marker options:     point: "."  pixel: ","  circle: "o"  square: "s"  star: "*"
-! Linestyle:          none: "None"  _ - -- :
+! Marker options:     none      No point
+!                     point: "."  pixel: ","  circle: "o"  square: "s"  star: "*"
 !
+!
+! Linestyle:          none      No line
+!                     -         Solid
+!                     --        Dashed
+!                     -.        Dash-Dot
+!                     :         Dotted
 !  
-  
   
 End Module plotTypes
 
@@ -89,19 +94,18 @@ Module plot
   Contains
 ! ---------------------------------------------------------------------------------------------------
 
-  Subroutine plotInit(settings,dataObj) 
+  Subroutine plotInit(dataObj) 
 ! Reset data objects for a plot  
     Implicit None  ! Force declaration of all variables
 ! Input    
-    Type(plotSettings) :: settings
     Type(plotData) :: dataObj
 ! Reset
     dataObj%label = "                "
     dataObj%key=-1  
-    settings%xMin=1.1D99
-    settings%xMax=-1.1D99
-    settings%yMin=1.1D99
-    settings%yMax=-1.1D99  
+    dataObj%xMin=1.1D99
+    dataObj%xMax=-1.1D99
+    dataObj%yMin=1.1D99
+    dataObj%yMax=-1.1D99  
   End Subroutine plotInit
   
   
@@ -232,7 +236,7 @@ Module plot
         If(fitList(i:i).eq.",".or.fitList(i:i).eq." ")Then
           keyFit = keyFit + 1
           Call plotFit(dataObj, dataArray, label, rowStart, rowEnd, colX, colY, fitType, dataObj%numFitPoints)
-          Call plotStyle(dataObj,",","--",keyFit)
+          Call plotStyle(dataObj,"None","--",keyFit)
           fitType = BlankString(fitType)
           n = 0
           If(fitList(i:i).eq." ")Then
@@ -293,6 +297,8 @@ Module plot
     Type(plotData) :: dataObj
     Character(*) :: marker
     Character(*) :: linestyle
+    Character(Len=10) :: markerUC, linestyleUC
+    Character(Len=1) :: lineColour
     Integer(kind=StandardInteger), Optional :: dataSetIn
 ! Private: Declare variables    
     Integer(kind=StandardInteger) :: k, key, keyIn
@@ -317,14 +323,39 @@ Module plot
 ! Set marker and linestyle
     dataObj%marker(key) = marker
     dataObj%linestyle(key) = linestyle    
+    markerUC = StrToUpper(marker)
+    linestyleUC = StrToUpper(linestyle)
+    
+    dataObj%gpLinestyle(key) = "linespoints"
+    If(markerUC.eq."NONE".and.linestyleUC.ne."NONE")Then
+      dataObj%gpLinestyle(key) = "lines"
+    End If
+    If(markerUC.ne."NONE".and.linestyleUC.eq."NONE")Then
+      dataObj%gpLinestyle(key) = "points"
+    End If
+    
+    If(linestyleUC.ne."NONE")Then
+      dataObj%gpLineColour = mod(dataObj%gpLineColour,9)+1
+      Write(lineColour,"(I1)") dataObj%gpLineColour
+      If(linestyleUC(1:2).eq."--")Then
+        dataObj%gpLinestyle(key) = trim(dataObj%gpLinestyle(key))//" lt 2 lc "//lineColour
+      Elseif(linestyleUC(1:2).eq."-.")Then
+        dataObj%gpLinestyle(key) = trim(dataObj%gpLinestyle(key))//" lt 5 lc "//lineColour
+      Elseif(linestyleUC(1:2).eq.": ")Then
+        dataObj%gpLinestyle(key) = trim(dataObj%gpLinestyle(key))//" lt 4 lc "//lineColour
+      Else
+        dataObj%gpLinestyle(key) = trim(dataObj%gpLinestyle(key))//" lt 1 lc "//lineColour
+      End If
+    End If
+    
+    
   End Subroutine plotStyle
   
 
-  Subroutine plotMake(settings, dataObj) 
+  Subroutine plotMake(dataObj) 
 ! Add data to the data object  
     Implicit None  ! Force declaration of all variables
 ! Input    
-    Type(plotSettings) :: settings
     Type(plotData) :: dataObj
 ! Private
     Character(len=8) :: fileName
@@ -347,9 +378,9 @@ Module plot
     Integer(kind=StandardInteger) :: maxRows, maxCols
     Integer(kind=StandardInteger), Dimension(1:200) :: maxRowsArr
 ! Init vars    
-    tempDirectory = settings%tempDirectory
-    outputDirectory = settings%outputDirectory 
-    outputName = settings%outputName 
+    tempDirectory = dataObj%tempDirectory
+    outputDirectory = dataObj%outputDirectory 
+    outputName = dataObj%outputName 
     xMin = 0.0D0
     xMax = 0.0D0
     yMin = 0.0D0
@@ -381,9 +412,9 @@ Module plot
 ! Set figure sizes
     pLine = BlankString(pLine)
     pLine = "plt.figure(figsize=("
-    pLine = trim(pLine)//trim(IntToStr(settings%width))//"/"//trim(IntToStr(settings%dpi))//","
-    pLine = trim(pLine)//trim(IntToStr(settings%height))//"/"//trim(IntToStr(settings%dpi))//"),"
-    pLine = trim(pLine)//"dpi="//trim(IntToStr(settings%dpi))//")"
+    pLine = trim(pLine)//trim(IntToStr(dataObj%width))//"/"//trim(IntToStr(dataObj%dpi))//","
+    pLine = trim(pLine)//trim(IntToStr(dataObj%height))//"/"//trim(IntToStr(dataObj%dpi))//"),"
+    pLine = trim(pLine)//"dpi="//trim(IntToStr(dataObj%dpi))//")"
     write(701,"(A)") trim(pLine)
     !write(701,"(A)") "plt.figure(figsize=(1792/144, 1008/144), dpi=144)"    
 ! write data arrays
@@ -479,23 +510,23 @@ Module plot
       write(701,"(A)") trim(pLine)
     End Do
 ! Write Titles
-    write(701,"(A)") "plt.title('"//trim(settings%title)//"')"
+    write(701,"(A)") "plt.title('"//trim(dataObj%title)//"')"
 ! Axes Labels
-    write(701,"(A)") "plt.xlabel('"//trim(settings%xAxis)//"')"
-    write(701,"(A)") "plt.ylabel('"//trim(settings%yAxis)//"')"
+    write(701,"(A)") "plt.xlabel('"//trim(dataObj%xAxis)//"')"
+    write(701,"(A)") "plt.ylabel('"//trim(dataObj%yAxis)//"')"
 ! Resize axis
-    If(settings%xMin.lt.settings%xMax)Then
-      write(dpStrA,"(E14.6)") settings%xMin      
-      write(dpStrB,"(E14.6)") settings%xMax      
+    If(dataObj%xMin.lt.dataObj%xMax)Then
+      write(dpStrA,"(E14.6)") dataObj%xMin      
+      write(dpStrB,"(E14.6)") dataObj%xMax      
       write(701,"(A)") "plt.xlim("//dpStrA//","//dpStrB//")"     
     Else
       write(dpStrA,"(E14.6)") (xMin-(0.05D0*(xMax-xMin)))
       write(dpStrB,"(E14.6)") (xMax+(0.05D0*(xMax-xMin)))     
       write(701,"(A)") "plt.xlim("//dpStrA//","//dpStrB//")"  
     End If
-    If(settings%yMin.lt.settings%yMax)Then
-      write(dpStrA,"(E14.6)") settings%yMin      
-      write(dpStrB,"(E14.6)") settings%yMax      
+    If(dataObj%yMin.lt.dataObj%yMax)Then
+      write(dpStrA,"(E14.6)") dataObj%yMin      
+      write(dpStrB,"(E14.6)") dataObj%yMax      
       write(701,"(A)") "plt.ylim("//dpStrA//","//dpStrB//")"   
     Else
       write(dpStrA,"(E14.6)") (yMin-(0.05D0*(yMax-yMin)))
@@ -504,7 +535,7 @@ Module plot
     End If
 ! Set output file
     write(701,"(A)") "plt.savefig('"//trim(outputDirectory)//"/"//&
-    trim(outputPy)//"',dpi="//trim(IntToStr(settings%dpi))//")"   
+    trim(outputPy)//"',dpi="//trim(IntToStr(dataObj%dpi))//")"   
 ! Close file
     close(701)
 ! Run python and the file to create the chart
@@ -513,7 +544,7 @@ Module plot
       exitstat=termExitStat)
     End If  
 ! Clean python file    
-    If(settings%cleanPyFile)Then
+    If(dataObj%cleanPyFile)Then
       Call system("rm -f "//(trim(tempDirectory)//"/"//fileName//".py"))
     End If
 ! --------------------------
@@ -537,7 +568,7 @@ Module plot
 ! CSV File and GnuPlot
 ! --------------------------    
     If(dataObj%dataFile.or.dataObj%gnuPlotFile)Then 
-      csvFile = trim(outputDirectory)//"/"//trim(settings%outputName)//".csv"
+      csvFile = trim(outputDirectory)//"/"//trim(dataObj%outputName)//".csv"
       open(unit=703,file=trim(csvFile))
 ! Blank array    
       csvArray = 0.0D0
@@ -618,15 +649,15 @@ Module plot
 ! ------------------        
         open(unit=704,file=(trim(tempDirectory)//"/gp_"//fileName//".gplot"))
         write(704,"(A)") "set terminal pngcairo size "&
-        //trim(IntToStr(settings%width))//","&
-        //trim(IntToStr(settings%height))//" enhanced font 'Verdana,10'"
+        //trim(IntToStr(dataObj%width))//","&
+        //trim(IntToStr(dataObj%height))//" enhanced font 'Verdana,10'"
         write(704,"(A)") "set output "//char(34)//trim(outputDirectory)//"/"&
         //trim(outputGp)//".png"//char(34)
         write(704,"(A)") "set grid xtics mxtics ytics mytics back"
         write(704,"(A)") "set datafile separator "//char(34)//","//char(34)
-        write(704,"(A)") "set title "//char(34)//trim(settings%title)//char(34)
-        write(704,"(A)") "set xlabel "//char(34)//trim(settings%xAxis)//char(34)
-        write(704,"(A)") "set ylabel "//char(34)//trim(settings%yAxis)//char(34)
+        write(704,"(A)") "set title "//char(34)//trim(dataObj%title)//char(34)
+        write(704,"(A)") "set xlabel "//char(34)//trim(dataObj%xAxis)//char(34)
+        write(704,"(A)") "set ylabel "//char(34)//trim(dataObj%yAxis)//char(34)
         write(704,"(A)") "set key autotitle columnheader"
         write(704,"(A)") "plot \"
 ! Loop through data sets        
@@ -644,7 +675,8 @@ Module plot
             gpDataLine = ","
           End If
           gpDataLine = trim(gpDataLine)//"'"//trim(csvFile)//"' using "&
-          //trim(adjustl(intStrA))//":"//trim(adjustl(intStrB))//" with lines "          
+          //trim(adjustl(intStrA))//":"//trim(adjustl(intStrB))//" with "&
+          //trim(dataObj%gpLinestyle(k))//" "                
           If(k.lt.maxCols)Then  ! end line with new line \ unless last data set
            gpDataLine = trim(gpDataLine)//" \ "
           End If
@@ -656,7 +688,7 @@ Module plot
         Call execute_command_line(trim(cmdLine),&
         exitstat=termExitStat)
 ! Clean gp file    
-        If(settings%cleanGpFile)Then
+        If(dataObj%cleanGpFile)Then
           Call system("rm -f "//trim(tempDirectory)//"/gp_"//fileName//".gplot")
         End If 
       End If      
@@ -669,9 +701,9 @@ Module plot
         write(705,"(A)") "set output "//char(34)//trim(outputGp)//".tex"//char(34)
         write(705,"(A)") "set grid xtics mxtics ytics mytics back"
         write(705,"(A)") "set datafile separator "//char(34)//","//char(34)
-        write(705,"(A)") "set title "//char(34)//trim(settings%title)//char(34)
-        write(705,"(A)") "set xlabel "//char(34)//trim(settings%xAxis)//char(34)
-        write(705,"(A)") "set ylabel "//char(34)//trim(settings%yAxis)//char(34)
+        write(705,"(A)") "set title "//char(34)//trim(dataObj%title)//char(34)
+        write(705,"(A)") "set xlabel "//char(34)//trim(dataObj%xAxis)//char(34)
+        write(705,"(A)") "set ylabel "//char(34)//trim(dataObj%yAxis)//char(34)
         write(705,"(A)") "set key autotitle columnheader"
         write(705,"(A)") "plot \"   
 ! Loop through data sets        
@@ -689,7 +721,8 @@ Module plot
             gpDataLine = ","
           End If
           gpDataLine = trim(gpDataLine)//"'"//trim(csvFile)//"' using "&
-          //trim(adjustl(intStrA))//":"//trim(adjustl(intStrB))//" with lines "          
+          //trim(adjustl(intStrA))//":"//trim(adjustl(intStrB))//" with "&
+          //trim(dataObj%gpLinestyle(k))//" "          
           If(k.lt.maxCols)Then  ! end line with new line \ unless last data set
            gpDataLine = trim(gpDataLine)//" \ "
           End If
@@ -701,8 +734,8 @@ Module plot
         Call execute_command_line(trim(cmdLine),&
         exitstat=termExitStat)
 ! Clean gpl file  
-        If(settings%cleanGpLatexFile)Then
-          !Call system("rm -f "//trim(tempDirectory)//"/gpl_"//fileName//".gplot")
+        If(dataObj%cleanGpLatexFile)Then
+          Call system("rm -f "//trim(tempDirectory)//"/gpl_"//fileName//".gplot")
         End If
       End If
 ! Clean csv      
