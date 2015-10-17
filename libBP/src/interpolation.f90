@@ -4,6 +4,7 @@ Module interpolation
 ! --------------------------------------------------------------!
   Use kinds
   Use constants
+  Use calcFunctions
   Use matrix
   Use linearAlgebra
 ! Force declaration of all variables
@@ -18,6 +19,7 @@ Module interpolation
   Public :: PointInterp
   Public :: InterpPoints
   Public :: FullInterp
+  Public :: FullInterpPoints
 ! Interfaces  
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -366,12 +368,9 @@ Module interpolation
   End Function InterpPoints
   
   
-  
-  
-  
-  
   Function FullInterp(dataPoints) RESULT (coefficients)
 ! Ax = y
+! Exact fit of (N-1) polynomial to N data points
     Implicit None ! Force declaration of all variables
 ! In:      Declare variables
     Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
@@ -394,6 +393,34 @@ Module interpolation
     coefficients = SolveLinearSet(A,Y) 
   End Function FullInterp
   
-  
+  Function FullInterpPoints(dataPoints, pointsOutCount) RESULT (dataPointsOut)
+! Force declaration of all variables
+    Implicit None
+! In:      Declare variables
+    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
+    Integer(kind=StandardInteger) :: pointsOutCount
+! Out:     Declare variables
+    Real(kind=DoubleReal), Dimension(1:pointsOutCount,1:2) :: dataPointsOut
+! Private: Declare variables
+    Real(kind=DoubleReal), Dimension(1:size(dataPoints,1)) :: coefficients
+    Integer(kind=StandardInteger) :: i, pointsInCount
+    Real(kind=DoubleReal) :: x
+    Real(kind=DoubleReal) :: xStart,xEnd,xInc
+! Init
+    pointsInCount = size(dataPoints,1)
+    xStart = dataPoints(1,1)    
+    xEnd = dataPoints(pointsInCount,1)    
+    xInc = (xEnd-xStart)/(pointsOutCount-1.0D0)
+! Fit Points    
+    coefficients = FullInterp(dataPoints)
+! Loop through points to make
+    Do i=1,pointsOutCount
+! Output node x val    
+      x = xStart+(i-1)*xInc      
+! store output points
+      dataPointsOut(i,1) = x
+      dataPointsOut(i,2) = CalcPolynomial(coefficients,x)
+    End Do  
+  End Function FullInterpPoints
 
 End Module interpolation

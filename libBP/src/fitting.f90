@@ -887,6 +887,9 @@ Module fitting
     End If  
     If(calcFunctionT(1:7).eq."INTERP5")Then 
       dataPointsOut = InterpPoints(dataPointsIn, pointsOutCount,5)
+    End If  
+    If(calcFunctionT(1:5).eq."EXACT")Then 
+      dataPointsOut = FullInterpPoints(dataPointsIn, pointsOutCount)
     End If 
   End Function FittingPoints  
   

@@ -78,6 +78,7 @@ Module plot
 !    
 ! Public Subroutines
   Public :: plotInit
+  Public :: plotLoadData
   Public :: plotAdd
   Public :: plotStyle
   Public :: plotMake
@@ -104,24 +105,51 @@ Module plot
   End Subroutine plotInit
   
   
-  Subroutine plotLoadData(filePath,fitList) 
+  Subroutine plotLoadData(dataObj, filePath, fitList) 
 ! Loads data from a csv file and fits each data set
+! First row is headers
     Implicit None  ! Force declaration of all variables
 ! In/Out:  Declare variables
+    Type(plotData) :: dataObj
     Character(*) :: filePath, fitList
 ! Private: Declare variables    
-    Character(Len=128), Dimension(1:10000) :: fileArray
+    Character(Len=256), Dimension(1:10000) :: fileArray
     Integer(kind=StandardInteger) :: rowCount
+    Real(kind=DoubleReal), Dimension(1:10000,1:50) :: csvArray
+    Real(kind=DoubleReal), Dimension(1:10000,1:2) :: dataArray
+    Character(Len=256), Dimension(1:50) :: dataHeadings
+    Character(Len=256), Dimension(1:50) :: colArray
+    Integer(kind=StandardInteger) :: cols, dataSets
+    Integer(kind=StandardInteger), Dimension(1:50) :: maxRowsArr
+    Integer(kind=StandardInteger) :: i, j
 ! read file into array
     Call readFile(filePath, fileArray, rowCount)
-    
-    
-    Real(kind=DoubleReal), Dimension(1:10000,1:200) :: csvArray
-    Integer(kind=StandardInteger) :: maxRows, maxCols
-    Integer(kind=StandardInteger), Dimension(1:200) :: maxRowsArr
-    
-
-    
+! data headings
+    Call explode(fileArray(1), ",", dataHeadings, cols)
+! read in data    
+    maxRowsArr = rowCount-1
+    Do i=2,rowCount
+      Call explode(fileArray(i), ",", colArray, cols)
+      Do j=1,cols
+        colArray(j) = trim(adjustl(colArray(j)))
+        If(colArray(j)(1:1).eq." ")Then
+          If(maxRowsArr(j).eq.(rowCount-1))Then
+            maxRowsArr(j) = i-2
+          End If
+        Else
+          csvArray(i-1,j) = StrToDp(colArray(j))
+        End If
+      End Do      
+    End Do
+! Add data
+    dataSets = ceiling(cols/2.0D0)
+    Do i=1,dataSets
+      Do j=1,maxRowsArr(2*(i-1)+1) 
+        dataArray(j,1) = csvArray(j,2*(i-1)+1)
+        dataArray(j,2) = csvArray(j,2*(i-1)+2)
+      End Do
+      Call plotAdd(dataObj, dataArray, dataHeadings(2*(i-1)+2), fitList, 1, maxRowsArr(2*(i-1)+1) , 1, 2) 
+    End Do
   End Subroutine plotLoadData
   
   

@@ -32,6 +32,8 @@ Module strings
   Public :: RemoveQuotes
   Public :: IntToStr
   Public :: DpToStr
+  Public :: StrToInt
+  Public :: StrToDp
   Public :: RandName
   Public :: TempFileName
   Public :: CleanString
@@ -241,6 +243,28 @@ Module strings
     Write(output,"(E12.5)") input
     output = trim(adjustl(output))
   End Function DpToStr
+  
+  Function StrToInt (input) RESULT (output)
+! Apply style to last dataset added (unless otherwise specified)
+    Implicit None  ! Force declaration of all variables  
+  ! In:      Declare variables  
+    Character(*) :: input
+  ! Out:     Declare variables    
+    Integer(kind=StandardInteger) :: output
+    output = 0
+    Read(input,*) output
+  End Function StrToInt
+  
+  Function StrToDp (input) RESULT (output)
+! Apply style to last dataset added (unless otherwise specified)
+    Implicit None  ! Force declaration of all variables  
+  ! In:      Declare variables  
+    Character(*) :: input
+  ! Out:     Declare variables    
+    Real(kind=DoubleReal) :: output
+    output = 0.0D0
+    Read(input,*) output
+  End Function StrToDp
   
   Function RandName(randSwitchIn, prefixIn) Result (randNameOut)
 ! Make a random 8 character "name"
