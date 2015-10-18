@@ -157,7 +157,7 @@ Module general
     Character(len=255) :: fileRow, fileRowTemp
     Logical :: commentsFlag
 ! open file
-    Open(UNIT=4323,FILE=trim(inputFilePath))
+    Open(UNIT=4323,FILE=trim(inputFilePath),status='old',action='read')
     n = 0
     Do i=1,size(fileArray,1)
       Read(4323,"(A255)",IOSTAT=ios) fileRow

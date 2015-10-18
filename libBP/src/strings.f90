@@ -34,6 +34,7 @@ Module strings
   Public :: DpToStr
   Public :: StrToInt
   Public :: StrToDp
+  Public :: StrToBool
   Public :: RandName
   Public :: TempFileName
   Public :: CleanString
@@ -265,6 +266,35 @@ Module strings
     output = 0.0D0
     Read(input,*) output
   End Function StrToDp
+   
+  Function StrToBool (inputIn) RESULT (output)
+! converts a user input into true/false bool
+    Implicit None  ! Force declaration of all variables  
+  ! In:      Declare variables  
+    Character(*) :: inputIn
+  ! Out:     Declare variables    
+    Logical :: output
+  ! Private: Declare variables
+    Character(len=6) :: input
+    input = inputIn
+    output = .false.
+    input = StrToUpper(Trim(Adjustl(input)))
+    If(input(1:1).eq."1")Then
+      output = .true.
+    End If
+    If(input(1:1).eq."+")Then
+      output = .true.
+    End If
+    If(input(1:1).eq."Y")Then
+      output = .true.
+    End If
+    If(input(1:4).eq."TRUE")Then
+      output = .true.
+    End If
+    If(input(1:6).eq.".TRUE.")Then
+      output = .true.
+    End If
+  End Function StrToBool  
   
   Function RandName(randSwitchIn, prefixIn) Result (randNameOut)
 ! Make a random 8 character "name"

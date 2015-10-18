@@ -52,6 +52,8 @@ Module plotTypes
     Logical :: gnuPlotFile = .true.
     Logical :: gnuPlotLatexFile = .false.
     Logical :: pyPlotFile = .false.
+    Character(Len=512) :: fitListInput = ""
+    Character(Len=512) :: csvFileInput = ""
     Character(Len=128) :: gplDir = ""                         ! directory tex and eps files are in relative to LaTeX main file e.g. chapter1/plots/
     Integer(kind=StandardInteger) :: numFitPoints = 500
   End Type  
@@ -83,6 +85,7 @@ Module plot
 !    
 ! Public Subroutines
   Public :: plotInit
+  Public :: plotReadInput
   Public :: plotLoadData
   Public :: plotAdd
   Public :: plotStyle
@@ -107,6 +110,68 @@ Module plot
     dataObj%yMin=1.1D99
     dataObj%yMax=-1.1D99  
   End Subroutine plotInit
+  
+  Subroutine plotReadInput(dataObj, inputFile)
+! Reset data objects for a plot  
+    Implicit None  ! Force declaration of all variables
+! In/Out:  Declare variables
+    Type(plotData) :: dataObj
+    Character(*) :: inputFile
+! Private: Declare variables    
+    Character(Len=256), Dimension(1:100) :: fileArray
+    Character(Len=16) ::  bufferA
+    Character(Len=128) ::  bufferB
+    Integer(kind=StandardInteger) :: rowCount
+    Integer(kind=StandardInteger) :: i
+! read file into array
+    Call readFile(inputFile, fileArray, rowCount)
+    Do i=1,rowCount
+      Read(fileArray(i),*) bufferA, bufferB
+      bufferA = StrToUpper(Trim(Adjustl(bufferA)))      
+      If(bufferA(1:13).eq."TEMPDIRECTORY")Then
+        dataObj%tempDirectory = Trim(Adjustl(bufferB))
+      End If
+      If(bufferA(1:15).eq."OUTPUTDIRECTORY")Then
+        dataObj%outputDirectory = Trim(Adjustl(bufferB))
+      End If
+      If(bufferA(1:10).eq."OUTPUTNAME")Then
+        dataObj%outputName = Trim(Adjustl(bufferB))
+      End If
+      If(bufferA(1:5).eq."TITLE")Then
+        dataObj%title = Trim(Adjustl(bufferB))
+      End If
+      If(bufferA(1:5).eq."XAXIS")Then
+        dataObj%xAxis = Trim(Adjustl(bufferB))
+      End If
+      If(bufferA(1:5).eq."YAXIS")Then
+        dataObj%yAxis = Trim(Adjustl(bufferB))
+      End If
+      If(bufferA(1:5).eq."WIDTH")Then
+        dataObj%width = StrToInt(Trim(Adjustl(bufferB)))
+      End If
+      If(bufferA(1:6).eq."HEIGHT")Then
+        dataObj%height = StrToInt(Trim(Adjustl(bufferB)))
+      End If
+      If(bufferA(1:8).eq."DATAFILE")Then
+        dataObj%dataFile = StrToBool(Trim(Adjustl(bufferB)))
+      End If
+      If(bufferA(1:11).eq."GNUPLOTFILE")Then
+        dataObj%gnuPlotFile = StrToBool(Trim(Adjustl(bufferB)))
+      End If
+      If(bufferA(1:10).eq."PYPLOTFILE")Then
+        dataObj%pyPlotFile = StrToBool(Trim(Adjustl(bufferB)))
+      End If
+      If(bufferA(1:16).eq."GNUPLOTLATEXFILE")Then
+        dataObj%gnuPlotLatexFile = StrToBool(Trim(Adjustl(bufferB)))
+      End If
+      If(bufferA(1:7).eq."FITLIST")Then
+        dataObj%fitListInput = Trim(Adjustl(bufferB))
+      End If
+      If(bufferA(1:7).eq."CSVFILE")Then
+        dataObj%csvFileInput = Trim(Adjustl(bufferB))
+      End If
+    End Do  
+  End Subroutine plotReadInput
   
   
   Subroutine plotLoadData(dataObj, filePath, fitList) 
