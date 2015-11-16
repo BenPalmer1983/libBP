@@ -26,7 +26,7 @@ Module strings
   Public :: TrimSpaces
   Public :: BlankString
   Public :: BlankStringArray
-  Public :: BlankString2DArray
+  Public :: Spaces
   Public :: SpacesRight
   Public :: RemoveComments
   Public :: RemoveQuotes
@@ -39,12 +39,22 @@ Module strings
   Public :: TempFileName
   Public :: CleanString
 ! ---- Subroutines  
+  Public :: explode
   Public :: randCharacter
-  
+  Public :: TrimString
+  Public :: StrCenter
+! Interfaces  
+  Interface BlankStringArray
+    Module Procedure BlankString1DArray, BlankString2DArray
+  End Interface BlankStringArray
 !---------------------------------------------------------------------------------------------------------------------------------------
   Contains 
 !---------------------------------------------------------------------------------------------------------------------------------------
  
+! ---------------------------------------------------------
+! MODULE SUBROUTINES
+! ---------------------------------------------------------
+  
 ! ---------------------------------------------------------
 ! MODULE FUNCTIONS
 ! ---------------------------------------------------------
@@ -132,11 +142,51 @@ Module strings
     End Do
   End Function RemoveSpaces
 !---------------------------------------------------------------------------------------------------------------------------------------
-    Function TrimSpaces (input) RESULT (output)
-      Character(*), INTENT(IN) :: input
-      Character(LEN(trim(adjustl(input)))) :: output
-      output = trim(adjustl(input))
-    End Function TrimSpaces
+  Function TrimSpaces(trimStr, padCharIn) Result (workingStr)
+! Trims 
+    Implicit None  ! Force declaration of all variables 
+! In/Out:      Declare variables
+    Character(*) :: trimStr  
+    Character(Len=1), Optional :: padCharIn 
+! Private:     Declare variables  
+    Character(Len(trimStr)) :: workingStr 
+    Integer(kind=StandardInteger) :: i, j, k, inputLen
+    Logical :: store
+    Character(Len=1) :: padChar 
+! Optional Argument    
+    padChar(1:1) = ""
+    If(Present(padCharIn))Then
+      padChar(1:1) = padCharIn(1:1)
+    End If
+! trim
+    store = .false.
+    j = 0
+    inputLen = len(trimStr)
+    Do i=1,inputLen
+      If(trimStr(i:i).ne." ")Then
+        store = .true.
+      End If
+      If(store)Then
+        j = j + 1
+        workingStr(j:j) = trimStr(i:i)
+      End If
+    End Do  
+    j = j + 1
+    If(j.lt.inputLen)Then
+      Do k=j,inputLen
+        workingStr(k:k) = " "
+      End Do
+    End If
+    Do i=1,inputLen
+      j = i-1
+      k = inputLen-j
+      If(workingStr(k:k).eq." ")Then
+        workingStr(k:k) = padChar(1:1)
+      Else
+        Exit
+      End If  
+    End Do
+  End Function TrimSpaces   
 
     Function BlankString (input) RESULT (output)
       Character(*), INTENT(IN) :: input
@@ -147,7 +197,7 @@ Module strings
       End Do
     End Function BlankString
 
-    Function BlankStringArray (input) RESULT (output)
+    Function BlankString1DArray (input) RESULT (output)
       Character(*), Dimension(:), INTENT(IN) :: input
       Character(Len(input)) :: line
       Character(Len(input)), Dimension(1:size(input,1)) :: output
@@ -158,7 +208,7 @@ Module strings
       Do i=1,size(input,1)
         output(i) = line
       End Do
-    End Function BlankStringArray
+    End Function BlankString1DArray
 
   Function BlankString2DArray (input) RESULT (output)
     Character(*), Dimension(:,:), INTENT(IN) :: input
@@ -174,6 +224,15 @@ Module strings
       End Do
     End Do
   End Function BlankString2DArray
+  
+  Function Spaces (length) RESULT (output)
+    Integer(kind=StandardInteger), INTENT(IN) :: length
+    Character(Len=length) :: output
+    Integer(kind=StandardInteger) :: i
+    Do i=1,length
+      output(i:i) = " "
+    End Do
+  End Function Spaces
     
   Function SpacesRight (input) RESULT (output)
 ! Adds spaces to right of string
@@ -234,14 +293,21 @@ Module strings
     output = trim(adjustl(output))
   End Function IntToStr
   
-  Function DpToStr (input) RESULT (output)
+  Function DpToStr (input, numFormatIn) RESULT (output)
 ! Apply style to last dataset added (unless otherwise specified)
     Implicit None  ! Force declaration of all variables  
   ! In:      Declare variables  
     Real(kind=DoubleReal) :: input
+    Character(*), Optional :: numFormatIn
   ! Out:     Declare variables    
     Character(Len=16) :: output
-    Write(output,"(E12.5)") input
+  ! Private: Declare variables   
+    Character(Len=12) :: numFormat
+    numFormat = "(E16.8)"
+    If(Present(numFormatIn))Then
+      numFormat = numFormatIn
+    End If
+    Write(output,numFormat) input
     output = trim(adjustl(output))
   End Function DpToStr
   
@@ -388,6 +454,54 @@ Module strings
 ! MODULE SUBROUTINES
 ! ---------------------------------------------------------  
   
+  Subroutine explode(inputString, fieldSplit, outputArray, outputCount)
+! In/Out:  Declare variables
+    Character(*) :: inputString
+    Character(*) :: fieldSplit
+    Character(*), Dimension(:) :: outputArray
+    Integer(kind=StandardInteger) :: outputCount
+! Private: Declare variables    
+    Character(Len(fieldSplit)) :: trialSegment
+    Integer(kind=StandardInteger) :: fieldCount
+    Integer(kind=StandardInteger) :: lenInput
+    Integer(kind=StandardInteger) :: lenSplit
+    Integer(kind=StandardInteger) :: i, charI, n, k
+! Init
+    outputCount = 0
+    Call TrimString(inputString,lenInput," ")
+    !lenInput = len(inputString)
+    lenSplit = len(fieldSplit)
+    If(lenInput.gt.lenSplit)Then
+      n = 0
+      fieldCount = 1
+      charI = 0
+      Do i=1,lenInput
+        charI = charI + 1
+        trialSegment = inputString(charI:(charI+lenSplit-1))
+        If(trialSegment.eq.fieldSplit)Then
+          Do k=n+1,len(outputArray)
+            outputArray(fieldCount)(k:k) = " "
+          End Do
+          fieldCount = fieldCount + 1
+          n = 0
+          charI = charI+lenSplit-1
+        Else  
+          n = n + 1
+          outputArray(fieldCount)(n:n) = inputString(charI:charI)
+        End If  
+        If(charI.ge.lenInput)Then
+          Exit
+        End If  
+      End Do
+! process last field
+      Do k=n+1,len(outputArray)
+        outputArray(fieldCount)(k:k) = " "
+      End Do
+! store field count
+      outputCount = fieldCount      
+    End If
+  End Subroutine explode 
+  
   Subroutine randCharacter(letter, randSwitchIn, setIn)
 ! In/Out:      Declare variables
     Character(len=1) :: letter
@@ -439,7 +553,92 @@ Module strings
       letter = alphaNum(characterNum:characterNum)
     End If
   End Subroutine randCharacter
+
+  Subroutine TrimString(trimStr, outputLength, padCharIn)
+! Trims 
+    Implicit None  ! Force declaration of all variables 
+! In/Out:      Declare variables
+    Character(*) :: trimStr  
+    Integer(kind=StandardInteger) :: outputLength
+    Character(Len=1), Optional :: padCharIn 
+! Private:     Declare variables  
+    Character(Len(trimStr)) :: workingStr 
+    Integer(kind=StandardInteger) :: i, j, k, inputLen
+    Logical :: store
+    Character(Len=1) :: padChar 
+! Optional Argument    
+    padChar(1:1) = ""
+    If(Present(padCharIn))Then
+      padChar(1:1) = padCharIn(1:1)
+    End If
+! trim
+    store = .false.
+    j = 0
+    inputLen = len(trimStr)
+    Do i=1,inputLen
+      If(trimStr(i:i).ne." ")Then
+        store = .true.
+      End If
+      If(store)Then
+        j = j + 1
+        workingStr(j:j) = trimStr(i:i)
+      End If
+    End Do  
+    j = j + 1
+    If(j.lt.inputLen)Then
+      Do k=j,inputLen
+        workingStr(k:k) = " "
+      End Do
+    End If
+    outputLength = 0
+    Do i=1,inputLen
+      j = i-1
+      k = inputLen-j
+      If(workingStr(k:k).eq." ")Then
+        workingStr(k:k) = padChar(1:1)
+      Else
+        Exit
+      End If  
+    End Do
+    outputLength = inputLen-j
+    Do i=1,inputLen
+      trimStr(i:i) = workingStr(i:i)
+    End Do
+  End Subroutine TrimString   
   
+  
+  Subroutine StrCenter(strIn, tarLenIn)
+! Trims 
+    Implicit None  ! Force declaration of all variables 
+! In/Out:      Declare variables
+    Character(*) :: strIn  
+    Integer(kind=StandardInteger), Optional :: tarLenIn
+! Private:     Declare variables    
+    Character(Len(strIn)) :: str
+    Integer(kind=StandardInteger) :: i, j, trimmedLen, lenStrIn, paddingL, paddingR    
+! length of useable string    
+    lenStrIn = Len(strIn)
+    If(Present(tarLenIn))Then
+      lenStrIn = tarLenIn
+    End If
+    str = strIn
+    Call TrimString(str, trimmedLen, " ")    
+    paddingL = floor((lenStrIn-trimmedLen)/2.0D0)
+    paddingR = (lenStrIn-trimmedLen)-paddingL    
+    j=0
+    Do i=1,paddingL
+      j = j + 1
+      strIn(j:j) = " "
+    End Do  
+    Do i=1,trimmedLen
+      j = j + 1
+      strIn(j:j) = str(i:i)
+    End Do  
+    Do i=1,paddingR
+      j = j + 1
+      strIn(j:j) = " "
+    End Do  
+  End Subroutine StrCenter  
   
 !---------------------------------------------------------------------------------------------------------------------------------------
 ! String random number functions (as these are loaded AFTER strings MOD with the rng MOD

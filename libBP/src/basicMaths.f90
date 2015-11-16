@@ -14,7 +14,15 @@ Module basicMaths
   Public :: BinomialCoefficient, BinomialCoefficientDP, BinomialCoefficientQ
   Public :: Odd
   Public :: Even
+  Public :: RSSCalc
+  Public :: Modulus
+  Public :: CompareSign
+  
+  
 ! Interfaces  
+  Interface Modulus
+    Module Procedure Modulus_R, Modulus_I
+  End Interface Modulus
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
   Contains 
@@ -146,6 +154,72 @@ Module basicMaths
       output = .false.
     End If
   End Function Even
+  
+  Function RSSCalc(inputA, inputB, factorIn) RESULT (output)
+! Get value of function at x
+    Implicit None ! Force declaration of all variables
+! Declare variables
+    Real(kind=DoubleReal) :: inputA, inputB
+    Real(kind=DoubleReal), optional :: factorIn
+    Real(kind=DoubleReal) :: factor, output
+    factor = 1.0D0
+    If(Present(factorIn))Then
+      factor = factorIn
+    End If
+    output = 0.0D0
+    If(inputA.gt.-2.0D20.and.inputB.gt.-2.0D20)Then
+      output = factor*(inputA-inputB)**2
+    End If    
+  End Function RSSCalc
+    
+  Function Modulus_I(x, divisor) RESULT (y)
+! calc modulus
+    Implicit None ! Force declaration of all variables
+! Declare variables
+    Integer(kind=StandardInteger) :: x, y, divisor, factor  
+    If(x.lt.0)Then
+      factor = ceiling(abs(x/(1.0D0*divisor)))
+      y = x+factor*divisor
+    Else      
+      factor = floor(x/(1.0D0*divisor))
+      y = x-factor*divisor
+    End If
+  End Function Modulus_I
+    
+  Function Modulus_R(x, divisor) RESULT (y)
+! calc modulus
+    Implicit None ! Force declaration of all variables
+! Declare variables
+    Real(kind=DoubleReal) :: x, y, divisor, factor  
+    If(x.lt.0.0D0)Then
+      factor = ceiling(abs(x/(1.0D0*divisor)))
+      y = x+factor*divisor
+    Else      
+      factor = floor(x/(1.0D0*divisor))
+      y = x-factor*divisor
+    End If
+  End Function Modulus_R
+  
+  Function CompareSign(x,y) Result (output)
+! True is the same, false if + and -, "0" will be classed as positive
+    Implicit None ! Force declaration of all variables
+! Declare variables
+    Real(kind=DoubleReal) :: x, y
+    Logical :: output
+    output = .false.
+    If(x.ge.0.0D0.and.y.lt.0.0D0)Then
+      output = .true.
+    Else
+      If(x.lt.0.0D0.and.y.ge.0.0D0)Then
+        output = .true.
+      End If    
+    End If
+  End Function CompareSign
+
+
+
+
+
   
 
 End Module basicMaths

@@ -8,6 +8,8 @@ Module maths
   Use arrayFunctions
   Use constants
   Use units
+  Use printModTypes
+  Use printMod
   Use matrix
   Use basicMaths
   Use rng
@@ -17,10 +19,10 @@ Module maths
   Use solveFunctions
   Use functionPoints
   Use vectors
+  Use lmaM
   Use regression
   Use interpolation
   Use newtonGauss
-  Use lmaM
   Use fitting
   Use rngDist
   Use coordFunctions

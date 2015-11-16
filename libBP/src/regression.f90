@@ -6,6 +6,7 @@ Module regression
   Use constants
   Use matrix
   Use linearAlgebra
+  Use lmaM
 ! Force declaration of all variables
   Implicit None
 ! Public variables  
@@ -58,6 +59,8 @@ Module regression
     xMatrix = InvertMatrix(xMatrix)
 ! multiply inverse by y to get coefficients
     coefficients = matMul(xMatrix,yMatrix)
+    
+    
   End Function PolyFit
   
 

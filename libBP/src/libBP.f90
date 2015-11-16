@@ -8,6 +8,8 @@ Module libBP
   Use arrayFunctions
   Use constants
   Use units
+  Use printModTypes
+  Use printMod
   Use matrix
   Use basicMaths
   Use rng
@@ -17,10 +19,10 @@ Module libBP
   Use solveFunctions
   Use functionPoints
   Use vectors
+  Use lmaM
   Use regression
   Use interpolation
   Use newtonGauss
-  Use lmaM
   Use fitting
   Use rngDist
   Use coordFunctions
@@ -28,4 +30,6 @@ Module libBP
   Use splines
   Use plotTypes
   Use plot
+  Use geomTypes
+  Use geom
 End Module libBP

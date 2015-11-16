@@ -195,6 +195,7 @@ Module plot
     Call readFile(filePath, fileArray, rowCount)
 ! data headings
     Call explode(fileArray(1), ",", dataHeadings, cols)
+    print *,fitList
 ! read in data    
     maxRowsArr = rowCount-1
     Do i=2,rowCount

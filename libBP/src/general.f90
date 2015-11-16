@@ -26,7 +26,6 @@ Module general
   Public :: rmDir
   Public :: correctFilePath
   Public :: readFile
-  Public :: explode
   Public :: extractArrayColumnDP
   Public :: extractArrayColumnInt
   Public :: swapArrayRows1D
@@ -184,55 +183,6 @@ Module general
 ! Close file
     close(4323)
   End Subroutine readFile
-  
-  Subroutine explode(inputString, fieldSplit, outputArray, outputCount)
-! In/Out:  Declare variables
-    Character(*) :: inputString
-    Character(*) :: fieldSplit
-    Character(*), Dimension(:) :: outputArray
-    Integer(kind=StandardInteger) :: outputCount
-! Private: Declare variables    
-    Character(Len(fieldSplit)) :: trialSegment
-    Integer(kind=StandardInteger) :: fieldCount
-    Integer(kind=StandardInteger) :: lenInput
-    Integer(kind=StandardInteger) :: lenSplit
-    Integer(kind=StandardInteger) :: i, charI, n, k
-! Init
-    outputCount = 0
-    inputString = adjustl(inputString)
-    lenInput = len(trim(inputString))
-    lenSplit = len(fieldSplit)
-    If(lenInput.gt.lenSplit)Then
-      n = 0
-      fieldCount = 1
-      charI = 0
-      Do i=1,lenInput
-        charI = charI + 1
-        trialSegment = inputString(charI:(charI+lenSplit-1))
-        !print *,i,charI,lenInput,inputString(charI:charI),fieldCount,trialSegment
-        If(trialSegment.eq.fieldSplit)Then
-          Do k=n+1,len(outputArray)
-            outputArray(fieldCount)(k:k) = " "
-          End Do
-          fieldCount = fieldCount + 1
-          n = 0
-          charI = charI+lenSplit-1
-        Else  
-          n = n + 1
-          outputArray(fieldCount)(n:n) = inputString(charI:charI)
-        End If  
-        If(charI.ge.lenInput)Then
-          Exit
-        End If  
-      End Do
-! process last field
-      Do k=n+1,len(outputArray)
-        outputArray(fieldCount)(k:k) = " "
-      End Do
-! store field count
-      outputCount = fieldCount      
-    End If
-  End Subroutine explode
   
 ! ARRAYS
 
