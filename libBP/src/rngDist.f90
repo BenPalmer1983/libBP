@@ -96,6 +96,12 @@ Module rngDist
         randNumber = x
         randomDist_randNumberG = y
       End If
+      If(randNumber.lt.lower)Then
+        randNumber = lower
+      End If
+      If(randNumber.gt.upper)Then
+        randNumber = upper
+      End If
     End If
 ! If Gaussian Type - half curve, centered on 0.0
 ! Box Muller method - fits mu=0.0 sigma=1.0 multiplied by 0.1
@@ -117,6 +123,12 @@ Module rngDist
 ! store second random number
         randNumber = x
         randomDist_randNumberH = y
+      End If
+      If(randNumber.lt.lower)Then
+        randNumber = lower
+      End If
+      If(randNumber.gt.upper)Then
+        randNumber = upper
       End If
     End If
 ! Testing dist type - points
@@ -153,7 +165,7 @@ Module rngDist
       End If
       yArray = PointInterp(randomDist_inverseInt,randNumber,4)  ! maths.f90
       randNumber = yArray(1)
-    End If
+    End If    
 ! Output (adjust to fall in range)
     output = lower + randNumber*(upper-lower)
   End Function RandomDist

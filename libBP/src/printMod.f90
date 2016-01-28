@@ -50,6 +50,7 @@ Module printMod
 ! Privacy of variables/functions/subroutines
   Private
 ! Public Subroutines
+  Public :: printBR
   Public :: printTableInit
   Public :: printTableAddHeadersR
   Public :: printTableAddHeadersC
@@ -62,6 +63,40 @@ Module printMod
   End Interface printTableAddRow
   
   Contains
+  
+! --------------------------------------------------------------------------  
+!     Print Basic
+! --------------------------------------------------------------------------   
+  
+  Subroutine printBR(widthIn, brCharIn)
+! Add header row (to head each column)    
+    Implicit None   ! Force declaration of all variables
+! In/out    
+    Integer(kind=StandardInteger), Optional :: widthIn
+    Character(Len=1), Optional :: brCharIn
+! Private variables
+    Integer(kind=StandardInteger) :: i, width
+    Character(Len=512) :: printLine
+    Character(Len=1) :: brChar
+! Optional argument
+    width = 90
+    If(Present(widthIn))Then
+      width = widthIn
+    End If
+    brChar = "-"
+    If(Present(brCharIn))Then
+      brChar = brCharIn
+    End If
+    Do i=1,width
+      printLine(i:i) = brChar
+    End Do  
+    Print *,printLine(1:width)
+  End Subroutine printBR    
+
+    
+! --------------------------------------------------------------------------  
+!     Print Table
+! --------------------------------------------------------------------------  
   
   Subroutine printTableInit(table)
 ! Add header row (to head each column)    

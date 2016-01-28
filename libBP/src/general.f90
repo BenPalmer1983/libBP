@@ -34,6 +34,9 @@ Module general
   Public :: strToDPArr
   Public :: strToStrArr
   Public :: timeAcc
+! Functions
+  Public :: FileExists  
+  Public :: CountRowFields
   
 ! ---- Subroutines
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -182,7 +185,7 @@ Module general
     End Do
 ! Close file
     close(4323)
-  End Subroutine readFile
+  End Subroutine readFile  
   
 ! ARRAYS
 
@@ -558,7 +561,64 @@ Module general
     Real(kind=DoubleReal) :: time,timeStart,timeEnd
     time = time + timeEnd - timeStart
   End Subroutine timeAcc
-
+  
+  
+! --------------------------------------------------------------------------------------------------
+!    Functions
+! --------------------------------------------------------------------------------------------------
+  
+  
+  Function FileExists(filePath) Result (boolOut)
+    Implicit None   ! Force declaration of all variables
+! Private variables  
+    Character(*) :: filePath
+    Logical :: boolOut
+! Inquire    
+    INQUIRE(FILE=trim(filePath), EXIST=boolOut)  
+  End Function FileExists
+  
+  Function CountRowFields(fileRow) Result (fieldCount)
+    Implicit None   ! Force declaration of all variables
+! In
+    Character(*) :: fileRow
+! Out    
+    Integer(kind=StandardInteger) :: fieldCount
+! Private variables  
+    Integer(kind=StandardInteger) :: i
+    Logical :: inQuotes
+!    Character(Len(fileRow)) :: fileRowTemp
+    
+! Blank string    
+!   fileRowTemp = BlankString(fileRowTemp)
+    fieldCount = 1
+    inQuotes = .false.
+    Do i=1,Len(trim(fileRow))
+      If(fileRow(i:i).eq.'"')Then
+        If(inQuotes)Then
+          inQuotes = .false.
+        Else
+          inQuotes = .true.
+        End If
+      End If
+      If(.Not.inQuotes)Then
+        If(i.gt.1)Then
+          If(fileRow(i:i).eq." ".and.fileRow(i-1:i-1).ne." ")Then
+            fieldCount = fieldCount + 1
+          End If
+        End If
+      End If
+    End Do    
+    
+    
+    
+    
+  End Function CountRowFields
+  
+  
+  
+  
+  
+  
 !---------------------------------------------------------------------------------------------------------------------------------------
 !---------------------------------------------------------------------------------------------------------------------------------------
 End Module general 

@@ -132,14 +132,16 @@ Module rng
     Real(kind=DoubleReal) :: randFloat
     Real(kind=DoubleReal) :: diff, tempFloat
     Real(kind=DoubleReal) :: randDouble
-! Make random integer
-    If(lower.gt.upper)Then
+! Make random float
+    If(lower.eq.upper)Then
+      lower = 0.0D0
+    Else If(lower.gt.upper)Then
       tempFloat = lower
       lower = upper
       upper = tempFloat
     End If
-    diff = (upper - lower) + 1
-    Call RANDOM_NUMBER(randDouble)
+    diff = 1.0D0*(upper - lower)
+    randDouble = RandomLCG()
     randFloat = lower+1.0D0*diff*randDouble
   End Function RandomFloat
 

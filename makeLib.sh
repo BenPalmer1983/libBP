@@ -9,7 +9,7 @@ srcDirLib=$workingDirLib"/libBP/src"
 modDirLib=$workingDirLib"/libBP/mod"
 libDirLib=$workingDirLib"/libBP/lib"
 binDirLib=$workingDirLib"/libBP/bin"
-fortLine="mpif90 -O3 -g -Wall -Wno-unused-function \
+fortLine="mpif90 -g -O3 -Wall -Wno-unused-function \
 -fbounds-check -fcheck=all -mtune=native "  # -O3
 #----------------------------------------------------------------------------------
 mkdir -p $binDirLib
@@ -18,20 +18,40 @@ mkdir -p $modDirLib
 #----------------------------------------------------------------------------------
 # Make mod and binary files
 cd $srcDirLib
+buildFiles=""
+buildFiles=$buildFiles"kinds.f90 "
+buildFiles=$buildFiles"strings.f90 "
+buildFiles=$buildFiles"general.f90  "
+buildFiles=$buildFiles"arrayFunctions.f90 "
+buildFiles=$buildFiles"constants.f90  "
+buildFiles=$buildFiles"units.f90 "
+buildFiles=$buildFiles"printMod.f90 "
+buildFiles=$buildFiles"matrix.f90 "
+buildFiles=$buildFiles"basicMaths.f90 "
+buildFiles=$buildFiles"rng.f90  "
+buildFiles=$buildFiles"laplaceTransforms.f90 "
+buildFiles=$buildFiles"linearAlgebra.f90 "
+buildFiles=$buildFiles"calcFunctions.f90  "
+buildFiles=$buildFiles"solveFunctions.f90 "
+buildFiles=$buildFiles"functionPoints.f90 "
+buildFiles=$buildFiles"vectors.f90  "
+buildFiles=$buildFiles"lmaM.f90 "
+buildFiles=$buildFiles"regression.f90  "
+buildFiles=$buildFiles"interpolation.f90 "
+buildFiles=$buildFiles"newtonGauss.f90 "
+buildFiles=$buildFiles"splinesFitting.f90 "
+buildFiles=$buildFiles"rngDist.f90 "
+buildFiles=$buildFiles"coordFunctions.f90 "
+buildFiles=$buildFiles"activityFunctions.f90 "
+buildFiles=$buildFiles"plot.f90 "
+buildFiles=$buildFiles"geom.f90 "
+buildFiles=$buildFiles"maths.f90 "
+buildFiles=$buildFiles"libBP.f90 "
 commandLine=$fortLine" -J "$modDirLib" -c "
-commandLine=$commandLine"kinds.f90 strings.f90 general.f90 "
-commandLine=$commandLine"arrayFunctions.f90 constants.f90 "
-commandLine=$commandLine"units.f90 printMod.f90 matrix.f90 basicMaths.f90 rng.f90 "
-commandLine=$commandLine"laplaceTransforms.f90 linearAlgebra.f90 calcFunctions.f90 "
-commandLine=$commandLine"solveFunctions.f90 functionPoints.f90 vectors.f90 "
-commandLine=$commandLine"lmaM.f90 regression.f90 "
-commandLine=$commandLine"interpolation.f90 newtonGauss.f90 "
-commandLine=$commandLine"fitting.f90 rngDist.f90 coordFunctions.f90 "
-commandLine=$commandLine"activityFunctions.f90 "
-commandLine=$commandLine"splines.f90 fitting.f90 plot.f90 geom.f90 "
-commandLine=$commandLine"maths.f90 libBP.f90 "
+commandLine=$commandLine" "$buildFiles
 eval $commandLine
 eval "mv "$srcDirLib"/*.o "$binDirLib
 # Make library
-commandLine="ar -vr "$libDirLib"/libBP.a "$binDirLib"/*.o " 
-eval $commandLine 
+#commandLine="ar -vr "$libDirLib"/libBP.a "$binDirLib"/*.o "
+commandLine="ar -r "$libDirLib"/libBP.a "$binDirLib"/*.o "
+eval $commandLine

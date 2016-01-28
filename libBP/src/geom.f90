@@ -30,10 +30,18 @@ Module geomTypes
   End Type  
   
   Type :: mdType  
-    Real(kind=DoubleReal) :: atomEnergy
-    Real(kind=DoubleReal),Dimension(1:3) :: coords
-    Real(kind=DoubleReal),Dimension(1:3) :: force
-    Real(kind=DoubleReal),Dimension(1:3) :: velocity
+    Integer(kind=StandardInteger) :: timeSteps
+    Real(kind=DoubleReal) :: rVerlet 
+    Real(kind=DoubleReal) :: rCut
+    Real(kind=DoubleReal) :: aLat
+    Real(kind=DoubleReal) :: timeInc = 0.0D0
+    Real(kind=DoubleReal) :: sMax = 0.0D0
+  
+  
+    !Real(kind=DoubleReal) :: atomEnergy
+    !Real(kind=DoubleReal),Dimension(1:3) :: coords
+    !Real(kind=DoubleReal),Dimension(1:3) :: force
+    !Real(kind=DoubleReal),Dimension(1:3) :: velocity
   End Type    
 
 End Module geomTypes
@@ -43,6 +51,7 @@ Module geom
 ! --------------------------------------------------------------!
 ! Ben Palmer, University of Birmingham
 ! --------------------------------------------------------------!
+  Use mpi
   Use kinds
   Use constants
   Use matrix
@@ -65,7 +74,8 @@ Module geom
   Public :: makeNL
   Public :: updateNL
   Public :: makeNLOriginal
-  !Public :: mdRun
+  Public :: mdRun
+  Public :: configOptVQ
   !Public :: configOpt
   !Public :: bfgsRelax
   !Public :: simpleRelax
@@ -83,6 +93,11 @@ Module geom
 !        Module Subroutines
 !
 ! -----------------------------------------------  
+
+
+! ------------------------------------------------------------
+!               Coordinates
+! ------------------------------------------------------------
   
   Subroutine makeCoords(coords, typeCell, copiesX, copiesY, copiesZ, aLat)
     Implicit None   ! Force declaration of all variables 
@@ -163,7 +178,9 @@ Module geom
     End Do
   End Subroutine makeCoordsProcess
   
-  
+! ------------------------------------------------------------
+!               Neighbour List
+! ------------------------------------------------------------
   
   Subroutine initNL(nl, allocatedLengthIn)
 ! Make neighbour list for atoms
@@ -288,14 +305,7 @@ Module geom
     nl%totalRDSq = 0.0D0
     nl%rVerlet = rVerlet
     nlUniqueKeyArr = 0
-    nlKey = 0
-! Sort out coords so they fall within alatxalatxalat box
-    !Do i=1,coordLength
-    !  atomTypes(i) = atomTypesIn(coordStart+i-1)
-    !  Do j=1,3
-    !    atomCoords(i,j) = Modulus(atomCoordsIn(coordStart+i-1,j),aLat)
-    !  End Do
-    !End Do    
+    nlKey = 0   
 ! calculate sub cell parameters
     scW = floor(aLat/(1.0D0*rVerlet))
     scCount = scW**3
@@ -467,8 +477,6 @@ Module geom
   End Subroutine makeNLProcess
   
   
-  
-  
   Subroutine updateNL(nl, atomCoords, coordStart)
 ! Make neighbour list for atoms
     Implicit None   ! Force declaration of all variables
@@ -501,9 +509,262 @@ Module geom
       nl%r(i,1) = rD  
       nl%r(i,2) = xD/rD  
       nl%r(i,3) = yD/rD  
-      nl%r(i,4) = zD/rD   
+      nl%r(i,4) = zD/rD         
     End Do
   End Subroutine updateNL
+  
+  
+  
+! ------------------------------------------------------------
+!               Molecular Dynamics
+! ------------------------------------------------------------
+  
+  
+  Subroutine mdRun(atomTypesIn, atomCoordsIn, coordStart, coordEnd, mdSettings)
+! Make neighbour list for atoms
+    Implicit None   ! Force declaration of all variables
+! In/Out
+    Integer(kind=StandardInteger), Dimension(:) :: atomTypesIn
+    Real(kind=DoubleReal), Dimension(:,:) :: atomCoordsIn 
+    Integer(kind=StandardInteger) :: coordStart, coordEnd
+    Type(mdType) :: mdSettings
+! Private
+    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: atomCoords 
+    Integer(kind=StandardInteger), Dimension(1:(coordEnd-coordStart+1)) :: atomTypes  
+    Type(nlType) :: nl
+    Integer(kind=StandardInteger) :: coordCount
+    Integer(kind=StandardInteger) :: i, j, step
+    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: velocityArr
+    Real(kind=DoubleReal) :: energy
+! Init    
+    coordCount = coordEnd-coordStart+1
+    velocityArr = 0.0D0
+    Call initNL(nl, 20000)
+! Sort out coords so they fall within alatxalatxalat box
+    Do i=1,coordCount
+      atomTypes(i) = atomTypesIn(coordStart+i-1)
+      Do j=1,3
+        atomCoords(i,j) = Modulus(atomCoordsIn(coordStart+i-1,j),mdSettings%aLat)
+      End Do
+    End Do      
+    Do step=1,mdSettings%timeSteps
+      Call makeNL(nl, atomTypes, atomCoords, coordStart, coordEnd, mdSettings%rVerlet, mdSettings%aLat)   
+      Call mdStep(nl, mdSettings, atomCoords, velocityArr, energy)
+      print *,energy
+    End Do
+  End Subroutine mdRun
+  
+  Subroutine mdStep(nl, mdSettings, atomCoords, velocityArr, energy)
+! Make neighbour list for atoms
+    Implicit None   ! Force declaration of all variables
+! In/Out
+    Type(nlType) :: nl
+    Type(mdType) :: mdSettings
+    Real(kind=DoubleReal), Dimension(:,:) :: atomCoords 
+    Real(kind=DoubleReal), Dimension(:,:) :: velocityArr 
+! Private    
+    Integer(kind=StandardInteger) :: i, j, coordCount
+    Real(kind=DoubleReal), Dimension(1:size(atomCoords,1),1:3) :: forceArr
+    Real(kind=DoubleReal) :: fMax, sMax, dT, energy
+! Init
+    coordCount = size(atomCoords,1)
+    dT = mdSettings%timeInc
+! Calc forces
+    Call efsCalc(nl,mdSettings,forceArr,energy)  
+! Largest force  
+    fMax = 0.0D0
+    sMax = 0.0D0
+    Do i=1,coordCount
+      Do j=1,3
+        If(abs(forceArr(i,j)).gt.fMax)Then
+          fMax = abs(forceArr(i,j))
+        End If
+      End Do
+    End Do
+! calculate velocity of atoms with most force applied
+    Do i=1,coordCount
+      Do j=1,3
+        velocityArr(i,j) = velocityArr(i,j)+forceArr(i,j)*dT
+        atomCoords(i,j) = atomCoords(i,j)+0.5D0*forceArr(i,j)*dT**2+velocityArr(i,j)*dT   
+        atomCoords(i,j) = Modulus(atomCoords(i,j),mdSettings%aLat) 
+      End Do
+    End Do
+  End Subroutine mdStep
+  
+  
+! ------------------------------------------------------------
+!               Atom Position Optimisation
+! ------------------------------------------------------------
+
+  Subroutine configOptVQ(atomTypesIn, atomCoordsIn, coordStart, coordEnd, mdSettings)
+! Make neighbour list for atoms
+    Implicit None   ! Force declaration of all variables
+! In/Out
+    Integer(kind=StandardInteger), Dimension(:) :: atomTypesIn
+    Real(kind=DoubleReal), Dimension(:,:) :: atomCoordsIn 
+    Integer(kind=StandardInteger) :: coordStart, coordEnd
+    Type(mdType) :: mdSettings
+! Private
+    Type(nlType) :: nl
+    Integer(kind=StandardInteger), Dimension(1:(coordEnd-coordStart+1)) :: atomTypes
+    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: atomCoords
+    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: forceArr
+    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: velocityArr 
+    Integer(kind=StandardInteger) :: i, j, coordCount
+    Real(kind=DoubleReal) :: energy, fMax, sMax, dT, x
+! Init    
+    coordCount = coordEnd-coordStart+1
+    Call initNL(nl, 20000)
+    velocityArr = 0.0D0
+    sMax = 0.05D0
+! Sort out coords so they fall within alatxalatxalat box
+    Do i=1,coordCount
+      atomTypes(i) = atomTypesIn(coordStart+i-1)
+      Do j=1,3
+        atomCoords(i,j) = Modulus(atomCoordsIn(coordStart+i-1,j),mdSettings%aLat)
+      End Do
+    End Do   
+! Make neighbour list
+    Call makeNL(nl, atomTypes, atomCoords, coordStart, coordEnd, mdSettings%rVerlet, mdSettings%aLat)
+    Call efsCalc(nl,mdSettings,forceArr,energy)       
+    Call maxForce(forceArr, fMax)
+    dT = sqrt((2.0D0*sMax)/fMax)
+    print *,fMax,dT
+    print *,forceArr(1,1),forceArr(1,2),forceArr(1,3)
+    
+    dT = 5.0D0
+    
+    Do i=1,50
+      !mdSettings%timeInc = dT*(0.8D0**(i-1))
+      velocityArr = 0.0D0
+      Call mdStep(nl, mdSettings, atomCoords, velocityArr, energy)
+      If(mod(i,10).eq.0)Then
+        Call makeNL(nl, atomTypes, atomCoords, coordStart, coordEnd, mdSettings%rVerlet, mdSettings%aLat)
+      Else
+        Call updateNL(nl, atomCoords, 1)   
+      End If
+      If(atomCoords(1,1).gt.10.0D0)Then
+        x = atomCoords(1,1) - 16.16D0
+      Else  
+        x = atomCoords(1,1)
+      End If
+      print *,i,atomCoords(1,1),atomCoords(1,2),atomCoords(1,3)
+    End Do
+    Call efsCalc(nl,mdSettings,forceArr,energy)    
+    print *,forceArr(1,1),forceArr(1,2),forceArr(1,3)  
+    
+    
+    
+    
+    
+  
+  End Subroutine configOptVQ
+  
+  
+  
+  
+  
+  
+  
+! ------------------------------------------------------------
+!               Energy-Force-Stress Calculations
+! ------------------------------------------------------------
+  
+  Subroutine efsCalc(nl,mdSettings,forceArr,energy)
+! Calc energy/stress/force using lj potential - no units
+    Implicit None   ! Force declaration of all variables
+! In/Out
+    Type(nlType) :: nl
+    Type(mdType) :: mdSettings
+    Real(kind=DoubleReal), Dimension(:,:) :: forceArr
+    Real(kind=DoubleReal) :: energy
+! Private    
+    Real(kind=DoubleReal) :: ljSigma, forceVal, rd
+    Real(kind=DoubleReal) :: fX, fY, fZ
+    Integer(kind=StandardInteger) :: i, nlKey, atomA, atomB
+    ljSigma = 4.0D0
+    forceArr = 0.0D0
+    energy = 0.0D0
+    i = 0
+    Do nlKey=1,nl%length
+      atomA = nl%i(nlKey,1)
+      atomB = nl%i(nlKey,2)      
+      rd = nl%r(nlKey,1)
+      If(rd.le.mdSettings%rCut)Then
+        i = i + 1
+        forceVal = ljForce(ljSigma, rd)
+        fX = forceVal*nl%r(nlKey,2)
+        fY = forceVal*nl%r(nlKey,3)
+        fZ = forceVal*nl%r(nlKey,4)
+! Store forces
+        forceArr(atomA,1) = forceArr(atomA,1)+fX
+        forceArr(atomA,2) = forceArr(atomA,2)+fY
+        forceArr(atomA,3) = forceArr(atomA,3)+fZ
+        forceArr(atomB,1) = forceArr(atomB,1)-fX
+        forceArr(atomB,2) = forceArr(atomB,2)-fY
+        forceArr(atomB,3) = forceArr(atomB,3)-fZ     
+! Energy
+        energy = energy + ljEnergy(ljSigma, rd)
+      End If  
+    End Do
+  End Subroutine efsCalc
+  
+  Subroutine efsCalcEnergy(nl,mdSettings,energy)
+! Calc energy only using lj potential - no units
+    Implicit None   ! Force declaration of all variables
+! In/Out
+    Type(nlType) :: nl
+    Type(mdType) :: mdSettings
+    Real(kind=DoubleReal) :: energy
+! Private    
+    Real(kind=DoubleReal) :: ljSigma, rd
+    Integer(kind=StandardInteger) :: i, nlKey, atomA, atomB
+    ljSigma = 4.0D0
+    energy = 0.0D0
+    i = 0
+    Do nlKey=1,nl%length
+      atomA = nl%i(nlKey,1)
+      atomB = nl%i(nlKey,2)      
+      rd = nl%r(nlKey,1)
+      If(rd.le.mdSettings%rCut)Then
+        i = i + 1  
+! Energy
+        energy = energy + ljEnergy(ljSigma, rd)
+      End If  
+    End Do
+  End Subroutine efsCalcEnergy
+  
+  
+  
+  Subroutine maxForce(forceArr, fMax)
+! Maximum force magnitude
+    Implicit None   ! Force declaration of all variables
+! In/Out
+    Real(kind=DoubleReal), Dimension(:,:) :: forceArr
+    Real(kind=DoubleReal) :: fMax
+! Private    
+    Integer(kind=StandardInteger) :: i, j
+    Real(kind=DoubleReal) :: maxMagSq, fSq
+! Init    
+    maxMagSq = 0.0D0
+! Loop through forces    
+    Do i=1,size(forceArr,1)
+      fSq = 0.0D0
+      Do j=1,size(forceArr,2) 
+        fSq = fSq + forceArr(i,j)*forceArr(i,j)  
+      End Do
+      If(fSq.gt.maxMagSq)Then
+        maxMagSq = fSq
+      End If
+    End Do
+! calculate max force    
+    fMax = sqrt(maxMagSq)
+  End Subroutine maxForce
+  
+  
+  
+  
+  
   
   
 ! -----------------------------------------------
@@ -529,7 +790,31 @@ Module geom
   End Function SubCellKey
   
   
+! Basic energy-force functions
+
+  Function ljEnergy(sigma, r) Result (vr)
+! Make neighbour list for atoms
+    Implicit None   ! Force declaration of all variables
+! In
+    Real(kind=DoubleReal) :: sigma
+    Real(kind=DoubleReal) :: r
+! Out
+    Real(kind=DoubleReal) :: vr
+! Calc  
+    vr = 1.0D-5*4.0D0*((sigma/r)**12.0D0-(sigma/r)**6.0D0)
+  End Function ljEnergy  
   
+  Function ljForce(sigma, r) Result (fr)
+! Make neighbour list for atoms
+    Implicit None   ! Force declaration of all variables
+! In
+    Real(kind=DoubleReal) :: sigma
+    Real(kind=DoubleReal) :: r
+! Out
+    Real(kind=DoubleReal) :: fr
+! Calc  
+    fr = 1.0D-5*(48.0D0/r)*((sigma/r)**12.0D0-(sigma/r)**6.0D0)
+  End Function ljForce
   
   
   

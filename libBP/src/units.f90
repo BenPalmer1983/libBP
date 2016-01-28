@@ -2,6 +2,9 @@ Module units
 ! --------------------------------------------------------------!
 ! Ben Palmer, University of Birmingham
 ! --------------------------------------------------------------!
+! 
+! 
+! 
   Use kinds
   Use strings
 ! Force declaration of all variables
@@ -78,6 +81,7 @@ Module units
     Call AddUnit("UM", 1.0D-6)
     Call AddUnit("NM", 1.0D-9)
     Call AddUnit("ANG", 1.0D-10,"ANGS")
+    Call AddUnit("BOHR", 5.2917721D-11)
 ! Volumes
     Call AddUnit("M3", 1.0D0)
     Call AddUnit("CM3", 1.0D-6)

@@ -23,11 +23,10 @@ Module maths
   Use regression
   Use interpolation
   Use newtonGauss
-  Use fitting
+  Use splinesFitting
   Use rngDist
   Use coordFunctions
   Use activityFunctions
-  Use splines
   Use plotTypes
   Use plot
 End Module maths
