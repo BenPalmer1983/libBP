@@ -4,28 +4,24 @@ Module general
 ! --------------------------------------------------------------!
   Use kinds
   Use strings
-  Use rng
 ! Force declaration of all variables
   Implicit None
-! Public variables  
-!  Integer(kind=LongInteger) :: rfnLCG_n=0
-!  Integer(kind=LongInteger) :: rfnLCG_xn
+! Public variables
 ! Make private
   Private
 ! Public
 ! ---- Variables
-!  Public :: rfnLCG_n
-!  Public :: rfnLCG_xn
 ! ---- Functions
   Public :: GetClockTime
   Public :: dpToString
   Public :: intToString
-! ---- Subroutines  
+! ---- Subroutines
   Public :: makeDir
   Public :: rmFile
   Public :: rmDir
   Public :: correctFilePath
   Public :: readFile
+  Public :: readCSV
   Public :: extractArrayColumnDP
   Public :: extractArrayColumnInt
   Public :: swapArrayRows1D
@@ -35,12 +31,12 @@ Module general
   Public :: strToStrArr
   Public :: timeAcc
 ! Functions
-  Public :: FileExists  
+  Public :: FileExists
   Public :: CountRowFields
-  
+
 ! ---- Subroutines
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Contains 
+  Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -49,14 +45,14 @@ Module general
 ! ---------------------------------------------------------
 
 ! TIMES
-  
+
   Function GetClockTime () RESULT (outputTime)
 ! Force declaration of all variables
     Implicit None
     Real(kind=DoubleReal) :: outputTime
     Call cpu_time(outputTime)
   End Function GetClockTime
-  
+
 
 ! TYPE CONVERSION
 
@@ -85,11 +81,11 @@ Module general
 !---------------------------------------------------------------------------------------------------------------------------------------
 !---------------------------------------------------------------------------------------------------------------------------------------
 
-  
+
 
 ! ---------------------------------------------------------
 ! MODULE SUBROUTINES
-! ---------------------------------------------------------  
+! ---------------------------------------------------------
 
 ! FILES AND DIRECTORIES
 
@@ -120,11 +116,11 @@ Module general
     Call system("rm -fR "//trim(path))
   End Subroutine rmDir
 
-  
+
   Subroutine correctFilePath (filePath)
-! Correct file path  
+! Correct file path
     Implicit None  !Force declaration of all variables
-! Declare variables  
+! Declare variables
     Character(*), Intent(INOUT) :: filePath
     Character(Len(filePath)) :: tempFilePath
     Integer(kind=StandardInteger) :: i, n
@@ -142,9 +138,9 @@ Module general
     End Do
     filePath = tempFilePath
   End Subroutine correctFilePath
-  
-  
-! READING FILES  
+
+
+! READING FILES
 
   Subroutine readFile(inputFilePath, fileArray, n)
 ! Subroutine to read file into an array
@@ -158,11 +154,16 @@ Module general
     Character(*), Dimension(:) :: fileArray
     Character(len=255) :: fileRow, fileRowTemp
     Logical :: commentsFlag
+! Exit if file does not exist
+    If(.not.FileExists(inputFilePath))Then
+      print *,"File Does Not Exist"
+      stop
+    End If
 ! open file
-    Open(UNIT=4323,FILE=trim(inputFilePath),status='old',action='read')
+    Open(UNIT=9999,FILE=trim(inputFilePath),status='old',action='read')
     n = 0
     Do i=1,size(fileArray,1)
-      Read(4323,"(A255)",IOSTAT=ios) fileRow
+      Read(9999,"(A255)",IOSTAT=ios) fileRow
       If(ios /= 0)Then
         EXIT
       End If
@@ -184,9 +185,88 @@ Module general
       End If
     End Do
 ! Close file
-    close(4323)
-  End Subroutine readFile  
-  
+    close(9999)
+  End Subroutine readFile
+
+
+  Subroutine readCSV(inputFilePath, fieldSeparator, csvArray, rows, columns)
+! Subroutine to read csv file into an array
+! Removes comments !.....
+! Removes blank lines
+! Removes leading spaces
+    Implicit None ! Force declaration of all variables
+! Vars: In/Out
+    Character(*) :: inputFilePath
+    Character(*) :: fieldSeparator
+    Real(kind=DoubleReal), Dimension(:,:) :: csvArray
+    Integer(kind=StandardInteger) :: rows, columns
+! Vars: Private
+    Integer(kind=StandardInteger) :: i, j, k, n, ios
+    Integer(kind=StandardInteger) :: row, col
+    Character(len=255), Dimension(1:32000) :: fileArray
+    Character(len=255) :: fileRow, fileRowTemp
+    Character(len=255) :: fieldTemp
+    Logical :: commentsFlag
+!
+! Set vars
+    rows = 0
+    columns = 0
+!
+! Part 1: read file into array, strip out any comments and blank lines
+! open file
+    Open(UNIT=9999,FILE=trim(inputFilePath),status='old',action='read')
+    n = 0
+    Do i=1,size(fileArray,1)
+      Read(9999,"(A255)",IOSTAT=ios) fileRow
+    If(ios /= 0)Then
+        EXIT
+      End If
+! remove comments
+      commentsFlag = .false.
+      Do j=1,255
+        If(fileRow(j:j).eq."!")Then
+          commentsFlag = .true.
+        End If
+        If(commentsFlag)Then
+          fileRow(j:j) = " "
+        End If
+      End Do
+! remove blank lines
+      fileRowTemp = trim(adjustl(fileRow))
+      If(fileRowTemp(1:1).ne." ")Then
+        n = n + 1
+        fileArray(n) = fileRowTemp
+      End If
+    End Do
+! Close file
+    close(9999)
+!
+! Part 2: read into array
+    Do i=1,n    ! Loop through file rows
+      fileRow = fileArray(i)
+      row = i
+      col = 0
+      fieldTemp = BlankString(fieldTemp)
+      k = 0
+      Do j=1,255
+        If(fileRow(j:j).eq.fieldSeparator.or.j.eq.255)Then
+          col = col + 1
+          fieldTemp = trim(fieldTemp)
+          Read(fieldTemp,*) csvArray(row,col)
+          fieldTemp = BlankString(fieldTemp)
+          k = 0
+        Else
+          k = k + 1
+          fieldTemp(k:k) = fileRow(j:j)
+        End if
+      End Do
+      If(col.gt.columns)Then
+        columns = col
+      End If
+    End Do
+    rows = n
+  End Subroutine readCSV
+
 ! ARRAYS
 
   Subroutine PrintMatrix(xMatrix)
@@ -305,7 +385,7 @@ Module general
       End Do
     End If
   End Subroutine swapArrayRows2D
-  
+
   ! Integer, 1D:
   Subroutine swapRows_Integer_1D(matrix,rowA,rowB)
     Integer(kind=StandardInteger) :: matrix(:)
@@ -411,9 +491,9 @@ Module general
       End Do
     End Do
   End Subroutine sort_Integer_2D
-  
-  
-! TYPE CONVERSION  
+
+
+! TYPE CONVERSION
 
   Subroutine strToIntArr(stringIn,intArr)
 ! Take space separated integers and convert to array
@@ -561,34 +641,34 @@ Module general
     Real(kind=DoubleReal) :: time,timeStart,timeEnd
     time = time + timeEnd - timeStart
   End Subroutine timeAcc
-  
-  
+
+
 ! --------------------------------------------------------------------------------------------------
 !    Functions
 ! --------------------------------------------------------------------------------------------------
-  
-  
+
+
   Function FileExists(filePath) Result (boolOut)
     Implicit None   ! Force declaration of all variables
-! Private variables  
+! Private variables
     Character(*) :: filePath
     Logical :: boolOut
-! Inquire    
-    INQUIRE(FILE=trim(filePath), EXIST=boolOut)  
+! Inquire
+    INQUIRE(FILE=trim(filePath), EXIST=boolOut)
   End Function FileExists
-  
+
   Function CountRowFields(fileRow) Result (fieldCount)
     Implicit None   ! Force declaration of all variables
 ! In
     Character(*) :: fileRow
-! Out    
+! Out
     Integer(kind=StandardInteger) :: fieldCount
-! Private variables  
+! Private variables
     Integer(kind=StandardInteger) :: i
     Logical :: inQuotes
 !    Character(Len(fileRow)) :: fileRowTemp
-    
-! Blank string    
+
+! Blank string
 !   fileRowTemp = BlankString(fileRowTemp)
     fieldCount = 1
     inQuotes = .false.
@@ -607,18 +687,18 @@ Module general
           End If
         End If
       End If
-    End Do    
-    
-    
-    
-    
+    End Do
+
+
+
+
   End Function CountRowFields
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
 !---------------------------------------------------------------------------------------------------------------------------------------
 !---------------------------------------------------------------------------------------------------------------------------------------
-End Module general 
+End Module general

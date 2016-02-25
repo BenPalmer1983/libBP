@@ -37,7 +37,7 @@ Module plotTypes
     Logical ::               cleanPyFile=.true.
     Logical ::               cleanGpFile=.true.
     Logical ::               cleanGpLatexFile=.true.
-    Character(Len=32), Dimension(1:100) :: label = "                "
+    Character(Len=32), Dimension(1:100) :: label = "                "                          ! Data set labels
     Integer(kind=StandardInteger), Dimension(1:100,1:2) :: key = -1
     Real(kind=DoubleReal), Dimension(1:10000,1:2) :: dataArr = 0.0D0
     Character(Len=10), Dimension(1:100) :: marker = "."
@@ -56,6 +56,7 @@ Module plotTypes
     Character(Len=512) :: csvFileInput = ""
     Character(Len=128) :: gplDir = ""                         ! directory tex and eps files are in relative to LaTeX main file e.g. chapter1/plots/
     Integer(kind=StandardInteger) :: numFitPoints = 500
+    Character(Len=3) :: gplOutType = "PNG"
   End Type
 
 ! Marker options:     none      No point
@@ -714,11 +715,21 @@ Module plot
 ! GnuPlot file
 ! ------------------
         open(unit=704,file=(trim(tempDirectory)//"/gp_"//fileName//".gplot"))
-        write(704,"(A)") "set terminal pngcairo size "&
-        //trim(IntToStr(dataObj%width))//","&
-        //trim(IntToStr(dataObj%height))//" enhanced font 'Verdana,10'"
-        write(704,"(A)") "set output "//char(34)//trim(outputDirectory)//"/"&
-        //trim(outputGp)//".png"//char(34)
+        dataObj%gplOutType = StrToUpper(dataObj%gplOutType)
+        If(dataObj%gplOutType.eq."PNG")Then
+          write(704,"(A)") "set terminal pngcairo size "&
+          //trim(IntToStr(dataObj%width))//","&
+          //trim(IntToStr(dataObj%height))//" enhanced font 'Verdana,10'"
+          write(704,"(A)") "set output "//char(34)//trim(outputDirectory)//"/"&
+          //trim(outputGp)//".png"//char(34)
+        End If
+        If(dataObj%gplOutType.eq."EPS")Then
+          write(704,"(A)") "set terminal postscript eps monochrome enhanced blacktext size "&
+          //trim(IntToStr(dataObj%width))//","&
+          //trim(IntToStr(dataObj%height))//""
+          write(704,"(A)") "set output "//char(34)//trim(outputDirectory)//"/"&
+          //trim(outputGp)//".eps"//char(34)
+        End If
         write(704,"(A)") "set grid xtics mxtics ytics mytics back"
         write(704,"(A)") "set datafile separator "//char(34)//","//char(34)
         write(704,"(A)") "set title "//char(34)//trim(dataObj%title)//char(34)

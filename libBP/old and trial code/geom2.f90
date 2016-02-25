@@ -15,9 +15,27 @@ Module geomTypes
   Use kinds
   
   Type :: nlType    
-  
+    !Integer(kind=StandardInteger), Dimension(1:100000,1:4) :: i
+    !Real(kind=DoubleReal), Dimension(1:100000,1:10) :: r
+    !Integer(kind=StandardInteger), Dimension(1:100000,1:3) :: cell
+    Integer(kind=StandardInteger), Allocatable, Dimension(:,:) :: i
+    Real(kind=DoubleReal), Allocatable, Dimension(:,:) :: r
+    Integer(kind=StandardInteger), Allocatable, Dimension(:,:) :: cell
+    
+    Integer(kind=StandardInteger) :: length = 0
+    Real(kind=DoubleReal) :: aLat
+    Real(kind=DoubleReal) :: rMin
+    Real(kind=DoubleReal) :: rMax
+    Real(kind=DoubleReal) :: totalRD
+    Real(kind=DoubleReal) :: totalRDSq
   End Type  
   
+  Type :: mdType  
+    Real(kind=DoubleReal) :: atomEnergy
+    Real(kind=DoubleReal),Dimension(1:3) :: coords
+    Real(kind=DoubleReal),Dimension(1:3) :: force
+    Real(kind=DoubleReal),Dimension(1:3) :: velocity
+  End Type    
 
 End Module geomTypes
 
@@ -28,22 +46,28 @@ Module geom
 ! --------------------------------------------------------------!
   Use kinds
   Use constants
+  Use matrix
+  Use basicMaths
   Use rng
+  Use linearAlgebra
   Use geomTypes
 ! Force declaration of all variables
   Implicit None
 ! Public variables  
-  !Integer(kind=LongInteger) :: randomLCG_n=0
+!  Type(nlType) :: nl
+!  Real(kind=DoubleReal),Dimension(1:3) :: coords
 ! Make private
   Private
 ! ---- Variables
-  Public :: randomLCG_n
+!  Public :: nl
 ! ---- Subroutines
   Public :: makeCoords
   Public :: makeNL
   Public :: updateNL
-  Public :: bfgsRelax
-  Public :: simpleRelax
+  Public :: mdRun
+  !Public :: configOpt
+  !Public :: bfgsRelax
+  !Public :: simpleRelax
   
 ! Interfaces  
 !
@@ -132,41 +156,64 @@ Module geom
       End Do
   End Subroutine makeCoordsProcess
   
-  Subroutine makeNL(atomTypes, atomCoords, coordStart, coordEnd, rcut, aLat, nl_I, nl_R, nlLength, totalRD)
+  
+  
+  
+  
+  
+  
+  
+  
+  !makeNL(atomID, coords, 1, 32, 6.5D0,2*4.04D0, nl)
+  
+  Subroutine makeNL(nl, atomTypesIn, atomCoordsIn, coordStart, coordEnd, rcut, aLat)
 ! Make neighbour list for atoms
     Implicit None   ! Force declaration of all variables
 ! In/Out
-    Integer(kind=StandardInteger), Dimension(:) :: atomTypes
-    Real(kind=DoubleReal), Dimension(:,:) :: atomCoords  
+    Type(nlType) :: nl
+    Integer(kind=StandardInteger), Dimension(:) :: atomTypesIn
+    Real(kind=DoubleReal), Dimension(:,:) :: atomCoordsIn  
     Integer(kind=StandardInteger) :: coordStart, coordEnd
     Real(kind=DoubleReal) :: rcut, aLat
-    Integer(kind=StandardInteger), Dimension(:,:) :: nl_I
-    Real(kind=DoubleReal), Dimension(:,:) :: nl_R
-    Integer(kind=StandardInteger) :: nlLength
-    Real(kind=DoubleReal) :: totalRD
 ! Private variables  
+    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: atomCoords 
+    Integer(kind=StandardInteger), Dimension(1:(coordEnd-coordStart+1)) :: atomTypes
     Real(kind=DoubleReal) :: rcutsq
     Integer(kind=StandardInteger), &
-    Dimension(1:(((coordEnd-coordStart)*(coordEnd-coordStart-1))/2+&
-       (coordEnd-coordStart+1))) :: nlUniqueKeyArr
-    Integer(kind=StandardInteger) :: l, m, n
+    Dimension(1:(coordEnd-coordStart)*(coordEnd-coordStart)) :: &
+    nlUniqueKeyArr
+    Integer(kind=StandardInteger) :: i, j, l, m, n
     Integer(kind=StandardInteger) :: atomA, atomB, uKey, nlKey, atomA_ID, atomB_ID
     Real(kind=DoubleReal) :: xA, xB, yA, yB, zA, zB, xD, yD, zD, rD
     Real(kind=DoubleReal) :: x1sq, x2sq, x3sq, rsq
-    Real(kind=DoubleReal) :: rMin, rMax, rMinSq, rMaxSq
-    
-    
+    Real(kind=DoubleReal) :: rMinSq, rMaxSq
     Real(kind=DoubleReal) :: xShift, yShift, zShift
-    Integer(kind=StandardInteger) :: coordLength
-    
+    Integer(kind=StandardInteger) :: coordLength    
+! Allocate nl arrays    
+    If(.not.Allocated(nl%i))Then
+      Allocate(nl%i(1:100000,1:4))
+    End If
+    If(.not.Allocated(nl%r))Then
+      Allocate(nl%r(1:100000,1:10))
+    End If
+    If(.not.Allocated(nl%cell))Then
+      Allocate(nl%cell(1:100000,1:3))
+    End If
 ! Init config specific variables
-    rMin = 2.0D21
-    rMax = -2.0D21
     rMinSq = 2.0D21
     rMaxSq = -2.0D21
     coordLength = coordEnd-coordStart+1
     rcutsq = rcut**2
-    totalRD = 0.0D0
+    nl%aLat = aLat
+    nl%totalRD = 0.0D0
+    nl%totalRDSq = 0.0D0
+! Sort out coords so they fall within alatxalatxalat box
+    Do i=1,coordLength
+      atomTypes(i) = atomTypesIn(coordStart+i-1)
+      Do j=1,3
+        atomCoords(i,j) = Modulus(atomCoordsIn(coordStart+i-1,j),aLat)
+      End Do
+    End Do    
 ! Loop through Atom B 3x3x3
     nlKey = 0
     Do l=-1,1
@@ -185,22 +232,19 @@ Module geom
               Else
 ! calculate the key of the atom A atom B combination
 ! half length list A=i,B=j == A=j,B=i
-                If(atomA.lt.atomB)Then
-                  uKey = (atomB-1)*(atomB-2)/2+atomA
+                If(atomA.gt.atomB)Then
+                  uKey = (atomA-1)*(atomA)/2+atomB
                 Else
-                  uKey = (atomA-1)*(atomA-2)/2+atomB
-                End If
-!
+                  uKey = (atomB-1)*(atomB)/2+atomA
+                End If!
                 If(nlUniqueKeyArr(uKey).eq.0)Then
                   nlUniqueKeyArr(uKey) = 1
-                  atomA_ID = coordStart+atomA-1
-                  atomB_ID = coordStart+atomB-1
-                  xA = 1.0D0*atomCoords(atomA_ID,1)
-                  xB = 1.0D0*(xshift + atomCoords(atomB_ID,1))
-                  yA = 1.0D0*atomCoords(atomA_ID,2)
-                  yB = 1.0D0*(yshift + atomCoords(atomB_ID,2))
-                  zA = 1.0D0*atomCoords(atomA_ID,3)
-                  zB = 1.0D0*(zshift + atomCoords(atomB_ID,3))
+                  xA = 1.0D0*atomCoords(atomA,1)
+                  xB = 1.0D0*(xshift + atomCoords(atomB,1))
+                  yA = 1.0D0*atomCoords(atomA,2)
+                  yB = 1.0D0*(yshift + atomCoords(atomB,2))
+                  zA = 1.0D0*atomCoords(atomA,3)
+                  zB = 1.0D0*(zshift + atomCoords(atomB,3))
                   xD = xA-xB
                   x1sq = xD**2
                   If(x1sq.le.rcutsq)Then
@@ -213,33 +257,29 @@ Module geom
                         rsq = x1sq + x2sq + x3sq
                         If(rsq.le.rcutsq)Then
                           rD = rsq**0.5
-                          totalRD = totalRD + rD
+                          nl%totalRD = nl%totalRD + rD
+                          nl%totalRDSq = nl%totalRDSq + rsq
                           nlKey = nlKey + 1
-                          nl_I(nlKey,1) = atomTypes(atomA_ID)  ! A type
-                          nl_I(nlKey,2) = atomTypes(atomB_ID)  ! B type
-                          nl_I(nlKey,3) = atomA                ! A ID
-                          nl_I(nlKey,4) = atomB                ! B ID
-                          nl_I(nlKey,5) = atomA_ID             ! A ID in coords array
-                          nl_I(nlKey,6) = atomB_ID             ! B ID in coords array
-                          nl_R(nlKey,1) = rD                          
-                          nl_R(nlKey,2) = xD/rD                ! Vector from B to A (x)
-                          nl_R(nlKey,3) = yD/rD                ! Vector from B to A (y)
-                          nl_R(nlKey,4) = zD/rD                ! Vector from B to A (z)
-                          nl_R(nlKey,5) = xA
-                          nl_R(nlKey,6) = yA
-                          nl_R(nlKey,7) = zA
-                          nl_R(nlKey,8) = xB
-                          nl_R(nlKey,9) = yB
-                          nl_R(nlKey,10) = zB
-                          
-                          If(nlKey.lt.5)Then
-                            !print *,nlKey,nl_I(nlKey,1),nl_I(nlKey,2),nl_R(nlKey,1),nl_R(nlKey,2),&
-                            !nl_R(nlKey,3),nl_R(nlKey,4)
-                            !print *,nlKey,nl_I(nlKey,1),nl_I(nlKey,2),nl_R(nlKey,5),nl_R(nlKey,6),&
-                            !nl_R(nlKey,7),nl_R(nlKey,8),nl_R(nlKey,9),nl_R(nlKey,10)
-                            !print *,""
-                          End If  
-                          
+                          ! Key/Type
+                          nl%i(nlKey,1) = atomA                ! A ID
+                          nl%i(nlKey,2) = atomB                ! B ID
+                          nl%i(nlKey,3) = atomTypes(atomA)  ! A type
+                          nl%i(nlKey,4) = atomTypes(atomB)  ! B type
+                          ! Displacement/Direction
+                          nl%r(nlKey,1) = rD                          
+                          nl%r(nlKey,2) = xD/rD                ! Vector from B to A (x)
+                          nl%r(nlKey,3) = yD/rD                ! Vector from B to A (y)
+                          nl%r(nlKey,4) = zD/rD                ! Vector from B to A (z)
+                          nl%r(nlKey,5) = xA
+                          nl%r(nlKey,6) = yA
+                          nl%r(nlKey,7) = zA
+                          nl%r(nlKey,8) = xB
+                          nl%r(nlKey,9) = yB
+                          nl%r(nlKey,10) = zB       
+                          ! Cell
+                          nl%cell(nlKey,1) = l
+                          nl%cell(nlKey,2) = m
+                          nl%cell(nlKey,3) = n
                           If(rsq.lt.rMinSq)Then
                             rMinSq = rsq
                           End If
@@ -257,259 +297,416 @@ Module geom
          End Do
       End Do
     End Do
-    nlLength = nlKey
+    nl%rMin = rMinSq**0.5D0
+    nl%rMax = rMaxSq**0.5D0
+    nl%Length = nlKey
+    !print *,nl%Length
   End Subroutine makeNL
   
   
-  Subroutine updateNL(atomCoordsChange, nl_I, nl_R, nlLength, totalRD)
+  Subroutine updateNL(nl, atomCoords, coordStart)
 ! Make neighbour list for atoms
     Implicit None   ! Force declaration of all variables
 ! In/Out
-    Real(kind=DoubleReal), Dimension(:,:) :: atomCoordsChange  
-    Integer(kind=StandardInteger), Dimension(:,:) :: nl_I
-    Real(kind=DoubleReal), Dimension(:,:) :: nl_R
-    Integer(kind=StandardInteger) :: nlLength
-    Real(kind=DoubleReal) :: totalRD
+    Type(nlType) :: nl
+    Real(kind=DoubleReal), Dimension(:,:) :: atomCoords  
+    Integer(kind=StandardInteger) :: coordStart
 ! Private
     Integer(kind=StandardInteger) :: i, atomA_ID, atomB_ID
-    Real(kind=DoubleReal) :: xD, yD, zD, rD
+    Real(kind=DoubleReal) :: xD, yD, zD, rD, rDSq
 ! Update
-    totalRD = 0.0D0
-    Do i=1,nlLength
+    nl%totalRD = 0.0D0
+    nl%totalRDSq = 0.0D0
+    Do i=1,nl%length
 ! ID    
-      atomA_ID = nl_I(i,5)
-      atomB_ID = nl_I(i,6)       
-! Make change in coord      
-      nl_R(i,5) = nl_R(i,5)+atomCoordsChange(atomA_ID,1)
-      nl_R(i,6) = nl_R(i,6)+atomCoordsChange(atomA_ID,2)
-      nl_R(i,7) = nl_R(i,7)+atomCoordsChange(atomA_ID,3)
-      nl_R(i,8) = nl_R(i,8)+atomCoordsChange(atomB_ID,1)
-      nl_R(i,9) = nl_R(i,9)+atomCoordsChange(atomB_ID,2)
-      nl_R(i,10) = nl_R(i,10)+atomCoordsChange(atomB_ID,3)
-      xD = nl_R(i,5)-nl_R(i,8)
-      yD = nl_R(i,6)-nl_R(i,9)
-      zD = nl_R(i,7)-nl_R(i,10)      
-      rD = (xD**2+yD**2+zD**2)**0.5
-      !print *,rD,nl_R(i,1) 
-      nl_R(i,1) = rD  
-      nl_R(i,2) = xD/rD  
-      nl_R(i,3) = yD/rD  
-      nl_R(i,4) = zD/rD   
-      totalRD = totalRD + rD
+      atomA_ID = nl%i(i,1)+coordStart-1
+      atomB_ID = nl%i(i,2)+coordStart-1       
+! Make change in coord  
+      nl%r(i,5) = atomCoords(atomA_ID,1)
+      nl%r(i,6) = atomCoords(atomA_ID,2)
+      nl%r(i,7) = atomCoords(atomA_ID,3)
+      nl%r(i,8) = atomCoords(atomB_ID,1)+1.0D0*nl%cell(i,1)*nl%aLat
+      nl%r(i,9) = atomCoords(atomB_ID,2)+1.0D0*nl%cell(i,2)*nl%aLat
+      nl%r(i,10) = atomCoords(atomB_ID,3)+1.0D0*nl%cell(i,3)*nl%aLat
+! Seperation
+      xD = nl%r(i,5)-nl%r(i,8)
+      yD = nl%r(i,6)-nl%r(i,9)
+      zD = nl%r(i,7)-nl%r(i,10)
+      rDSq = xD**2+yD**2+zD**2
+      rD = rDSq**0.5
+! Store
+      nl%r(i,1) = rD  
+      nl%r(i,2) = xD/rD  
+      nl%r(i,3) = yD/rD  
+      nl%r(i,4) = zD/rD   
+      nl%totalRD = nl%totalRD + rD
+      nl%totalRDSq = nl%totalRDSq + rDSq
     End Do
   End Subroutine updateNL
   
   
-  Subroutine bfgsRelax(atomTypes, atomCoords, coordStart, coordEnd, rcut, aLat)
-! simple relaxation of atoms
+  Subroutine efsCalc(nl,forceArr)
+! Calc energy/stress/force using lj potential - no units
     Implicit None   ! Force declaration of all variables
 ! In/Out
-    Integer(kind=StandardInteger), Dimension(:) :: atomTypes
-    Real(kind=DoubleReal), Dimension(:,:) :: atomCoords  
-    Integer(kind=StandardInteger) :: coordStart, coordEnd
-    Real(kind=DoubleReal) :: rcut, aLat
-! Private
-    Integer(kind=StandardInteger) :: i, j, k
-    Integer(kind=StandardInteger), Dimension(1:20000,1:6) :: nl_I
-    Real(kind=DoubleReal), Dimension(1:20000,1:10) :: nl_R
-    Integer(kind=StandardInteger) :: nlLength
-    !Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: forces
-    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: velocity
-    Real(kind=DoubleReal) :: timeInc, totalRD, randVar
-    Real(kind=DoubleReal), &
-    Dimension(1:size(atomCoords,1),1:size(atomCoords,2)) :: atomCoordsChange  
-    
-    
-    timeInc = 0.1D0
-    velocity = 0.0D0
-    atomCoordsChange = 0.0D0
-    Call makeNL(atomTypes, atomCoords, coordStart, coordEnd, rcut, aLat, nl_I, nl_R, nlLength, totalRD) 
-    
-    Do i=coordStart,coordEnd
-      print *,i,atomCoords(coordStart+i-1,1),atomCoords(coordStart+i-1,2),atomCoords(coordStart+i-1,3)
+    Type(nlType) :: nl
+    Real(kind=DoubleReal), Dimension(:,:) :: forceArr
+! Private    
+    Real(kind=DoubleReal) :: ljSigma, energyVal, forceVal, rd
+    Real(kind=DoubleReal) :: fX, fY, fZ
+    Integer(kind=StandardInteger) :: i, nlKey, atomA, atomB
+    ljSigma = 4.0D0
+    forceArr = 0.0D0
+    Do nlKey=1,nl%length
+      atomA = nl%i(nlKey,1)
+      atomB = nl%i(nlKey,2)      
+      rd = nl%r(nlKey,1)
+      !energyVal = ljEnergy(ljSigma,rd)
+      forceVal = ljForce(ljSigma, rd)
+      fX = forceVal*nl%r(nlKey,2)
+      fY = forceVal*nl%r(nlKey,3)
+      fZ = forceVal*nl%r(nlKey,4)
+! Store forces
+      forceArr(atomA,1) = forceArr(atomA,1)+fX
+      forceArr(atomA,2) = forceArr(atomA,2)+fY
+      forceArr(atomA,3) = forceArr(atomA,3)+fZ
+      forceArr(atomB,1) = forceArr(atomB,1)-fX
+      forceArr(atomB,2) = forceArr(atomB,2)-fY
+      forceArr(atomB,3) = forceArr(atomB,3)-fZ      
     End Do
-    
-    
-    
-    
-    print *,"0",nlLength, totalRD
-    Do i=1,4
-      Do j=coordStart,coordEnd
-        Do k=1,3
-          randVar = RandomLCG()
-          atomCoordsChange(j,k) = 1.50D0*randVar
-          !print *,j,atomCoordsChange(j,1),atomCoordsChange(j,2),atomCoordsChange(j,3)
-        End Do 
-      End Do
-      
-      Call updateNL(atomCoordsChange, nl_I, nl_R, nlLength, totalRD)
-      print *,i ,nlLength, totalRD
-      
-      
-      
-      !Call simpleRelaxForce(forces, nl_I, nl_R, nlLength)
-    End Do    
-    
-    !Function LMA(points, calcFunction, parametersIn, weightingIn, limitsLowerIn, limitsUpperIn) &
-    !RESULT (parametersOut)
-    
-    !fx = calcFunction(x,parameters,size(parameters,1))
-    
-    
-  End Subroutine bfgsRelax
-    
   
+  End Subroutine efsCalc
   
-  
-  
-  
-  
-  
-  
-  Subroutine simpleRelax(atomTypes, atomCoords, coordStart, coordEnd, rcut, aLat)
-! simple relaxation of atoms
+  Subroutine mdMove(nl, atomCoords, forceArr, velocityArr, timeInc)
     Implicit None   ! Force declaration of all variables
 ! In/Out
-    Integer(kind=StandardInteger), Dimension(:) :: atomTypes
+    Type(nlType) :: nl
+    Real(kind=DoubleReal), Dimension(:,:) :: forceArr
     Real(kind=DoubleReal), Dimension(:,:) :: atomCoords  
+    Real(kind=DoubleReal), Dimension(:,:) :: velocityArr
+    Real(kind=DoubleReal) :: timeInc
+    Real(kind=DoubleReal) :: dV, v0, vAvg, s0, dS
+    Real(kind=DoubleReal) :: vFactor
+! Private
+    Integer(kind=StandardInteger) :: i, j
+    Real(kind=DoubleReal), Dimension(1:size(forceArr,1),1:size(forceArr,2)) :: forceArrLast
+! Init    
+    forceArrLast = forceArr
+! Calculate force on atoms
+    Call efsCalc(nl,forceArr)
+! Mass = 1, acceleration = force
+    Do i=1,size(atomCoords,1)
+      Do j=1,3
+        vFactor = 1.0D0
+        If(CompareSign(forceArr(i,j),forceArrLast(i,j)))Then
+          vFactor = 0.5D0
+        End If
+! Velocity
+        v0 = velocityArr(i,j)
+        dV = timeInc * forceArr(i,j)
+        vAvg = v0 + 0.5D0*dV        
+        velocityArr(i,j) =  vFactor*(v0 + dV)
+! Displacement        
+        s0 = atomCoords(i,j)
+        dS = 0.5D0 * forceArr(i,j) * timeInc**2 + vAvg * timeInc
+        atomCoords(i,j) = Modulus(s0 + dS,nl%alat)
+      End Do
+    End Do
+! Update neighbour list
+    !Call updateNL(nl, atomCoords, 1)
+  End Subroutine mdMove
+  
+  
+  Subroutine mdRun(atomTypesIn, atomCoordsIn, coordStart, coordEnd, rcut, aLat, timeSteps, timeInc)
+! Make neighbour list for atoms
+    Implicit None   ! Force declaration of all variables
+! In/Out
+    Integer(kind=StandardInteger), Dimension(:) :: atomTypesIn
+    Real(kind=DoubleReal), Dimension(:,:) :: atomCoordsIn  
     Integer(kind=StandardInteger) :: coordStart, coordEnd
     Real(kind=DoubleReal) :: rcut, aLat
-! Private
-    Integer(kind=StandardInteger) :: i
-    Integer(kind=StandardInteger), Dimension(1:20000,1:6) :: nl_I
-    Real(kind=DoubleReal), Dimension(1:20000,1:10) :: nl_R
-    Integer(kind=StandardInteger) :: nlLength
-    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: forces
-    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: velocity
-    Real(kind=DoubleReal) :: timeInc, totalRD
-    
-    timeInc = 0.1D0
-    velocity = 0.0D0
-    Do i=1,100
-      Call makeNL(atomTypes, atomCoords, coordStart, coordEnd, rcut, aLat, nl_I, nl_R, nlLength, totalRD)    
-      Call simpleRelaxForce(forces, nl_I, nl_R, nlLength)
-      Call simpleRelaxMove(atomCoords, coordStart, coordEnd, forces, velocity, timeInc)
-      !Call simpleRelaxOutputCoords(atomTypes, atomCoords, coordStart, coordEnd)
-    End Do    
-    
-  End Subroutine simpleRelax
-  
-  
-  Subroutine simpleRelaxForce(forces, nl_I, nl_R, nlLength)
-! simple relaxation of atoms - force calculation subroutine
-    Implicit None   ! Force declaration of all variables
-! In/Out
-    Real(kind=DoubleReal), Dimension(:,:) :: forces
-    Integer(kind=StandardInteger), Dimension(:,:) :: nl_I
-    Real(kind=DoubleReal), Dimension(:,:) :: nl_R
-    Integer(kind=StandardInteger) :: nlLength
-! Private
-    Integer(kind=StandardInteger) :: i
-    Real(kind=DoubleReal) :: force, forceTotal
-    Real(kind=DoubleReal) :: r 
-! Init
-    
-    forces = 0.0D0
-    
-    Do i=1,nlLength
-      r = nl_R(i,1)
-      force = (2.0D0/(r**2)+1.0D0/(r**3))
-      forces(nl_I(i,3),1) = forces(nl_I(i,3),1) + nl_R(i,2) * (-1.0D0) * force
-      forces(nl_I(i,3),2) = forces(nl_I(i,3),2) + nl_R(i,3) * (-1.0D0) * force
-      forces(nl_I(i,3),3) = forces(nl_I(i,3),3) + nl_R(i,4) * (-1.0D0) * force
-      forces(nl_I(i,4),1) = forces(nl_I(i,4),1) + nl_R(i,2) * force
-      forces(nl_I(i,4),2) = forces(nl_I(i,4),2) + nl_R(i,3) * force
-      forces(nl_I(i,4),3) = forces(nl_I(i,4),3) + nl_R(i,4) * force
-      If(i.lt.20)Then
-        !-1.0D0*
-        !print *,i,r,force
-        !print *,i,nl_I(i,1),nl_I(i,2),nl_R(i,1),nl_R(i,2),&
-        !nl_R(i,3),nl_R(i,4)
-        !print *,i,nl_I(i,1),nl_I(i,2),nl_R(i,5),nl_R(i,6),&
-        !nl_R(i,7),nl_R(i,8),nl_R(i,9),nl_R(i,10)
-        !print *,""
-      End If
-    End Do    
-    forceTotal = 0.0D0
-    Do i=1,255
-      !print *,i,forces(i,1),forces(i,2),forces(i,3)
-      forceTotal = forceTotal + abs(forces(i,1)) + abs(forces(i,2)) + abs(forces(i,3))
-    End Do   
-    print *, forceTotal
-  End Subroutine simpleRelaxForce
-  
-  
-  Subroutine simpleRelaxMove(atomCoords, coordStart, coordEnd, forces, velocity, timeInc)
-! simple relaxation of atoms - force calculation subroutine
-    Implicit None   ! Force declaration of all variables
-! In/Out
-    Real(kind=DoubleReal), Dimension(:,:) :: atomCoords  
-    Integer(kind=StandardInteger) :: coordStart, coordEnd
-    Real(kind=DoubleReal), Dimension(:,:) :: forces    
-    Real(kind=DoubleReal), Dimension(:,:) :: velocity    
+    Integer(kind=StandardInteger) :: timeSteps
     Real(kind=DoubleReal) :: timeInc
 ! Private
+    Type(nlType) :: nl
+    Integer(kind=StandardInteger), Dimension(1:(coordEnd-coordStart+1)) :: atomTypes
+    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: atomCoords  
+    Integer(kind=StandardInteger) :: coordCount
     Integer(kind=StandardInteger) :: i, j, k
-    Real(kind=DoubleReal) :: maxForce
+    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: forceArr
+    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: velocityArr
+ 
+    print *,size(atomTypesIn,1)
+    print *,size(atomCoordsIn,1)
+    print *,nl%length
     
-    Do i=1,size(forces,1)
-      Do j=1,3 
-        velocity(i,j) = velocity(i,j) + timeInc - forces(i,j)
+    print *, atomCoordsIn(1,1), atomCoordsIn(1,2), atomCoordsIn(1,3)
+     
+! Init      
+    velocityArr = 0.0D0
+    coordCount = (coordEnd-coordStart+1)
+! Load atom coords from input array
+    k = coordStart   
+    Do i=1,coordCount
+      atomTypes(i) = atomTypesIn(k)
+      Do j=1,3
+        atomCoords(i,j) = atomCoordsIn(k,j)
       End Do
+      k = k + 1
     End Do
     
-    j = 0
-    Do i=coordStart,coordEnd
-      j = j + 1
-      Do k=1,3
-        atomCoords(i,k) = atomCoords(i,k) - forces(j,k) * timeInc**2 + velocity(j,k) * timeInc
-      End Do   
+    Call makeNL(nl, atomTypes, atomCoords, 1, coordCount, rcut, aLat)   
+    Call efsCalc(nl,forceArr)
+    
+    Do i=1,coordCount
+      print *,i,atomCoords(i,1),atomCoords(i,2),atomCoords(i,3),&
+        forceArr(i,1),forceArr(i,2),forceArr(i,3),nl%length
+    End Do
+
+    
+    Do j=1,timeSteps
+      Call makeNL(nl, atomTypes, atomCoords, 1, coordCount, rcut, aLat)    
+      Call mdMove(nl, atomCoords, forceArr, velocityArr, timeInc)   
+      !If(j.ge.8.and.j.le.16)Then
+      !print *,""
+      !Do i=1,nl%length
+      !  If(nl%i(i,1).eq.1.or.nl%i(i,2).eq.1)Then
+      !    print *,nl%i(i,1),nl%i(i,2),nl%r(i,1)
+      !  End If  
+      !End Do
+      !print *,""
+      !End If
+    End Do
+    
+    print *,""
+    print *,""
+    print *,""
+    
+    Do i=1,coordCount
+      print *,i,atomCoords(i,1),atomCoords(i,2),atomCoords(i,3),&
+      forceArr(i,1),forceArr(i,2),forceArr(i,3),nl%length
     End Do
     
     
     
     
-    maxForce = 0.0D0
-    Do i=1,size(forces,1)
-      Do j=1,3 
-        If(i.eq.1.and.j.eq.1)Then
-          maxForce = abs(forces(i,j))
-        End If
-        If(abs(forces(i,j)).gt.maxForce)Then
-          maxForce = abs(forces(i,j))
-        End If  
-      End Do
-    End Do      
-    !print *,maxForce
     
-    j = 0
-    Do i=coordStart,coordEnd
-      j = j + 1
-      Do k=1,3
-        !atomCoords(i,k) = atomCoords(i,k) - 0.2D0 * forces(j,k)
-      End Do   
-    End Do
   
-  End Subroutine simpleRelaxMove
+  End Subroutine mdRun
   
-  Subroutine simpleRelaxOutputCoords(atomTypes, atomCoords, coordStart, coordEnd)
-! simple relaxation of atoms - force calculation subroutine
+  
+  
+  
+  
+  
+  
+  
+  
+  
+! Functions
+  Function ljEnergy(sigma, r) Result (vr)
+! Make neighbour list for atoms
+    Implicit None   ! Force declaration of all variables
+! In
+    Real(kind=DoubleReal) :: sigma
+    Real(kind=DoubleReal) :: r
+! Out
+    Real(kind=DoubleReal) :: vr
+! Calc  
+    vr = 1.0D-5*4.0D0*((sigma/r)**12.0D0-(sigma/r)**6.0D0)
+  End Function ljEnergy
+  
+  
+  Function ljForce(sigma, r) Result (fr)
+! Make neighbour list for atoms
+    Implicit None   ! Force declaration of all variables
+! In
+    Real(kind=DoubleReal) :: sigma
+    Real(kind=DoubleReal) :: r
+! Out
+    Real(kind=DoubleReal) :: fr
+! Calc  
+    fr = 1.0D-5*(48.0D0/r)*((sigma/r)**12.0D0-(sigma/r)**6.0D0)
+  End Function ljForce
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  Subroutine makeNLTrial(atomTypes, atomCoords, coordStart, coordEnd, rcut, aLat)
+! Make neighbour list for atoms
+! Assumes no interferrence i.e. rcut<0.5*alat
     Implicit None   ! Force declaration of all variables
 ! In/Out
     Integer(kind=StandardInteger), Dimension(:) :: atomTypes
     Real(kind=DoubleReal), Dimension(:,:) :: atomCoords  
     Integer(kind=StandardInteger) :: coordStart, coordEnd
-! Private
-    Integer(kind=StandardInteger) :: i
+    Real(kind=DoubleReal) :: rcut, aLat
+    !Type(nlType) :: nl
+! Private variables  
+    Real(kind=DoubleReal), Dimension(1:(coordEnd-coordStart+1),1:3) :: coordsA
+    Real(kind=DoubleReal), Dimension(1:27*(coordEnd-coordStart+1),1:3) :: coordsB
+    Real(kind=DoubleReal), Dimension(1:27*(coordEnd-coordStart+1),1:3) :: cell
+    Integer(kind=StandardInteger), Dimension(1:(coordEnd-coordStart+1),1:2) :: coordsA_I 
+    Integer(kind=StandardInteger), Dimension(1:27*(coordEnd-coordStart+1),1:2) :: coordsB_I 
+    Integer(kind=StandardInteger) :: aCount, bCount
+    Integer(kind=StandardInteger) :: i, j, k
     
-    print *,(coordEnd-coordStart+1)
-    print *,"Comment"
-    Do i=coordStart,coordEnd
-      print *,atomTypes(i), atomCoords(i,1), atomCoords(i,2), atomCoords(i,3)
+    Real(kind=DoubleReal) :: xMin, xMax    
+    Integer(kind=StandardInteger) :: atomA, atomB
+    Real(kind=DoubleReal) :: rcutsq
+    Real(kind=DoubleReal) :: xB, yB, zB
+    Real(kind=DoubleReal) :: xD, yD, zD
+    Real(kind=DoubleReal) :: xDsq, yDsq, zDsq, rDsq
+    Integer(kind=StandardInteger) :: uKey
+    Logical :: savePair
+    
+
+    !Integer(kind=StandardInteger), &
+    !Dimension(1:(((coordEnd-coordStart)*(coordEnd-coordStart-1))/2+&
+    !   (coordEnd-coordStart+1))) :: nlUniqueKeyArr
+    Integer(kind=StandardInteger), Dimension(1:100000) :: nlU_In
+    Integer(kind=StandardInteger), Dimension(1:100000) :: nlU_Out
+    Integer(kind=StandardInteger) :: l, m, n
+    Integer(kind=StandardInteger) :: atomB_ID
+    !Real(kind=DoubleReal) :: xA, xB, yA, yB, zA, zB, xD, yD, zD, rD
+    !Real(kind=DoubleReal) :: x1sq, x2sq, x3sq, rsq
+    !Real(kind=DoubleReal) :: rMinSq, rMaxSq
+    !Real(kind=DoubleReal) :: xShift, yShift, zShift
+    Integer(kind=StandardInteger), Dimension(1:100) :: neighbourTally
+    
+! Init    
+    xMin = (-1.0D0)*rcut
+    xMax = (1.0D0)*rcut+aLat
+    rcutsq = rcut**2
+    neighbourTally = 0
+    nlU_In = 0
+    nlU_Out = 0
+! Cube A
+    i = 0
+    Do k=coordStart,coordEnd
+      i = i+1
+      Do j=1,3
+        coordsA_I(i,1) = atomTypes(k)
+        coordsA(i,j) = atomCoords(k,j)
+      End Do
+    End Do
+    aCount = i    
+    print *,aCount
+    
+! Cube B
+    k = 0
+    Do l=-1,1
+      Do m=-1,1
+        Do n=-1,1
+          Do i=1,aCount 
+            xB = coordsA(i,1) + l*aLat
+            If(xB.ge.xMin.and.xB.le.xMax)Then
+              yB = coordsA(i,2) + m*aLat
+              If(yB.ge.xMin.and.yB.le.xMax)Then
+                zB = coordsA(i,3) + n*aLat
+                If(zB.ge.xMin.and.zB.le.xMax)Then
+                  k = k + 1
+                  coordsB(k,1) = xB
+                  coordsB(k,2) = yB
+                  coordsB(k,3) = zB
+                  cell(k,1) = l
+                  cell(k,2) = m
+                  cell(k,3) = n
+                  coordsB_I(k,1) = coordsA_I(i,1)
+                  coordsB_I(k,2) = i
+                End If
+              End If    
+            End If                
+          End Do  
+        End Do  
+      End Do  
+    End Do  
+    bCount = k    
+    print *,bCount
+    
+    k = 0
+    Do atomA=1,aCount    
+      Do atomB=1,bCount      
+        If(cell(atomB,1).eq.0.and.cell(atomB,2).eq.0.and.&
+        cell(atomB,3).eq.0.and.atomA.eq.coordsB_I(atomB,2))Then
+          !Skip
+        Else        
+          savePair = .false.
+          If(atomA.gt.atomB)Then
+            uKey = (atomA-1)*(atomA)/2+coordsB_I(atomB,2)
+          Else
+            uKey = (coordsB_I(atomB,2)-1)*(coordsB_I(atomB,2))/2+atomA
+          End If
+          If(cell(atomB,1).eq.0.and.cell(atomB,2).eq.0.and.cell(atomB,3).eq.0)Then
+            If(nlU_In(uKey).eq.0)Then
+              savePair = .true.
+              nlU_In(uKey) = 1
+            End If
+          Else  
+            If(nlU_Out(uKey).eq.0)Then
+              savePair = .true.
+              nlU_Out(uKey) = 1
+            End If
+          End If
+          
+          
+          !If(savePair)Then
+            xD = coordsA(atomA,1)-coordsB(atomB,1)
+            xDsq = xD**2
+            If(xDsq.le.rcutsq)Then
+              yD = coordsA(atomA,2)-coordsB(atomB,2)
+              yDsq = yD**2
+              If(yDsq.le.rcutsq)Then
+                zD = coordsA(atomA,3)-coordsB(atomB,3)
+                zDsq = zD**2
+                If(zDsq.le.rcutsq)Then
+                  rDsq = xDsq+yDsq+zDsq
+                  If(rDsq.le.rcutsq)Then
+                    k = k + 1
+                    
+                    atomB_ID = coordsB_I(atomB,2)
+                    neighbourTally(atomA) = neighbourTally(atomA) + 1
+                    neighbourTally(atomB_ID) = neighbourTally(atomB_ID) + 1
+                    
+                  End If
+                End If
+              End If
+            End If
+          !End If         
+          
+        End If
+      End Do
+    End Do
+    print *,k
+    
+    Do i=1,aCount
+      print *,i,neighbourTally(i)
     End Do
   
-  End Subroutine simpleRelaxOutputCoords
+  End Subroutine makeNLTrial
   
   
-
+  
+  
+  
+  
 End Module geom

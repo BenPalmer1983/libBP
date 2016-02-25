@@ -54,4 +54,6 @@ eval "mv "$srcDirLib"/*.o "$binDirLib
 # Make library
 #commandLine="ar -vr "$libDirLib"/libBP.a "$binDirLib"/*.o "
 commandLine="ar -r "$libDirLib"/libBP.a "$binDirLib"/*.o "
+echo "Compiling libBP.a:"
+echo $commandLine
 eval $commandLine

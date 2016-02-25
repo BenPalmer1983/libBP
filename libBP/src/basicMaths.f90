@@ -15,17 +15,18 @@ Module basicMaths
   Public :: Odd
   Public :: Even
   Public :: RSSCalc
+  Public :: RSSPoints
   Public :: Modulus
   Public :: CompareSign
-  
-  
-! Interfaces  
+
+
+! Interfaces
   Interface Modulus
     Module Procedure Modulus_R, Modulus_I
   End Interface Modulus
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Contains 
+  Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
 
   Function RoundDP(dpIn) RESULT (intOut)
@@ -34,8 +35,8 @@ Module basicMaths
     Real(kind=DoubleReal) :: dpIn
     Integer(kind=StandardInteger) :: intOut
     intOut = Floor(dpIn+0.5D0)
-  End Function RoundDP 
- 
+  End Function RoundDP
+
   Function Factorial(input) RESULT (output)
 ! force declaration of all variables
     Implicit None
@@ -48,7 +49,7 @@ Module basicMaths
       output = i * output
     End Do
   End Function Factorial
-  
+
   Function FactorialDP(input) RESULT (output)
 ! force declaration of all variables
     Implicit None
@@ -63,7 +64,7 @@ Module basicMaths
     End Do
     output = 1.0D0*tempInt
   End Function FactorialDP
-  
+
   Function FactorialQ(input) RESULT (output)
 ! force declaration of all variables
     Implicit None
@@ -98,7 +99,7 @@ Module basicMaths
 ! calculate factorial
     c = Factorial(n)/(Factorial(n-k)*Factorial(k))
   End Function BinomialCoefficient
-  
+
   Function BinomialCoefficientDP(n,k) RESULT (c)
 ! force declaration of all variables
     Implicit None
@@ -124,7 +125,7 @@ Module basicMaths
     kDP = FactorialDP(k)
     c = 1.0D0*nDP/(nkDP*kDP)
   End Function BinomialCoefficientQ
-  
+
   Function Odd(input) RESULT (output)
 ! Returns true if odd, false if even
     Implicit None  ! Force declaration of all variables
@@ -154,7 +155,7 @@ Module basicMaths
       output = .false.
     End If
   End Function Even
-  
+
   Function RSSCalc(inputA, inputB, factorIn) RESULT (output)
 ! Get value of function at x
     Implicit None ! Force declaration of all variables
@@ -169,37 +170,56 @@ Module basicMaths
     output = 0.0D0
     If(inputA.gt.-2.0D20.and.inputB.gt.-2.0D20)Then
       output = factor*(inputA-inputB)**2
-    End If    
+    End If
   End Function RSSCalc
-    
+
+  Function RSSPoints(xArr, yArr) RESULT (output)
+! Calculate RSS between values in arrays
+    Implicit None ! Force declaration of all variables
+! In:      Declare variables
+    Real(kind=DoubleReal), Dimension(:,:) :: xArr
+    Real(kind=DoubleReal), Dimension(:,:) :: yArr
+! Out:     Declare variables
+    Real(kind=DoubleReal) :: output
+! Private: Declare variables
+    Integer(kind=StandardInteger) :: n
+! Loop through points (if data sets same size)
+    output = 0.0D0
+    If(size(xArr,1).eq.size(yArr,1))Then
+      Do n=1,size(xArr,1)
+        output = output + (xArr(n,2)-yArr(n,2))**2
+      End Do
+    End If
+  End Function RSSPoints
+
   Function Modulus_I(x, divisor) RESULT (y)
 ! calc modulus
     Implicit None ! Force declaration of all variables
 ! Declare variables
-    Integer(kind=StandardInteger) :: x, y, divisor, factor  
+    Integer(kind=StandardInteger) :: x, y, divisor, factor
     If(x.lt.0)Then
       factor = ceiling(abs(x/(1.0D0*divisor)))
       y = x+factor*divisor
-    Else      
+    Else
       factor = floor(x/(1.0D0*divisor))
       y = x-factor*divisor
     End If
   End Function Modulus_I
-    
+
   Function Modulus_R(x, divisor) RESULT (y)
 ! calc modulus
     Implicit None ! Force declaration of all variables
 ! Declare variables
-    Real(kind=DoubleReal) :: x, y, divisor, factor  
+    Real(kind=DoubleReal) :: x, y, divisor, factor
     If(x.lt.0.0D0)Then
       factor = ceiling(abs(x/(1.0D0*divisor)))
       y = x+factor*divisor
-    Else      
+    Else
       factor = floor(x/(1.0D0*divisor))
       y = x-factor*divisor
     End If
   End Function Modulus_R
-  
+
   Function CompareSign(x,y) Result (output)
 ! True is the same, false if + and -, "0" will be classed as positive
     Implicit None ! Force declaration of all variables
@@ -212,7 +232,7 @@ Module basicMaths
     Else
       If(x.lt.0.0D0.and.y.ge.0.0D0)Then
         output = .true.
-      End If    
+      End If
     End If
   End Function CompareSign
 
@@ -220,6 +240,6 @@ Module basicMaths
 
 
 
-  
+
 
 End Module basicMaths

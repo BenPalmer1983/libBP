@@ -9,7 +9,7 @@ Module regression
   Use lmaM
 ! Force declaration of all variables
   Implicit None
-! Public variables  
+! Public variables
 ! Make private
   Private
 ! Public
@@ -17,14 +17,15 @@ Module regression
 ! --functions--!
   Public :: PolyFit
   Public :: LinearRegression
-! Interfaces  
+! Interfaces
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Contains 
+  Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
-  
+
   Function PolyFit(points,order) RESULT (coefficients)
 ! Fits a polynomial of order to the points input
+! Uses Vandermonde Matrix
     Implicit None  !Force declaration of all variables
 ! Declare variables
 ! In
@@ -59,10 +60,8 @@ Module regression
     xMatrix = InvertMatrix(xMatrix)
 ! multiply inverse by y to get coefficients
     coefficients = matMul(xMatrix,yMatrix)
-    
-    
   End Function PolyFit
-  
+
 
   Function LinearRegression(X,Y) RESULT (parameters)
 !  Linear regression
@@ -88,22 +87,22 @@ Module regression
       parameters = SolveLinearSet(XTX,XTY)
     End If
   End Function LinearRegression
-  
-  
-    
+
+
+
 
 !  Function LR(dataPoints,paramCount,calcFunction,startPointIn,endPointIn) RESULT (parameters)
 !  Linear regression
 !  B = (XTX)-1 XTY
 !  f(x) = a_1 g_1(x) + a_2 g_2(x) +...+ a_n g_n(x)
 !  Some linear function
-!    Implicit None  ! Force declaration of all variables  
-! In:      Declare variables  
+!    Implicit None  ! Force declaration of all variables
+! In:      Declare variables
 !    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
 !    Integer(kind=StandardInteger) :: paramCount
 !    Real(kind=DoubleReal), External :: calcFunction
 !    Integer(kind=StandardInteger), Optional :: startPointIn, endPointIn
-! Out:     Declare variables  
+! Out:     Declare variables
 !    Real(kind=DoubleReal), Dimension(1:paramCount) :: parameters
 ! Private: Declare variables
 !    Real(kind=DoubleReal), Dimension(1:Size(dataPoints,1),1:paramCount) :: X
@@ -111,19 +110,19 @@ Module regression
 !    X = calcFunction(paramCount,dataPoints)
 !  End Function LR
 
-  
-!---------------------------------------------------------------------------------------------------------------------------------------  
+
+!---------------------------------------------------------------------------------------------------------------------------------------
 ! Linear Regression functions
-!---------------------------------------------------------------------------------------------------------------------------------------  
-  
+!---------------------------------------------------------------------------------------------------------------------------------------
+
 !  Function LR_Embed1(paramCount,dataPoints) RESULT (X)
 !  Linear regression function for Embed1
 !  f(p) = ap^0.5 + bp^2
-!    Implicit None  ! Force declaration of all variables  
-! In:      Declare variables  
-!    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints  
+!    Implicit None  ! Force declaration of all variables
+! In:      Declare variables
+!    Real(kind=DoubleReal), Dimension(:,:) :: dataPoints
 !  End Function LR_Embed1
-  
-  
-  
+
+
+
 End Module regression
