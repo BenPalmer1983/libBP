@@ -10,7 +10,6 @@ Module basicMaths
   Private
 ! Public
   Public :: RoundDP
-  Public :: Factorial, FactorialDP, FactorialQ
   Public :: BinomialCoefficient, BinomialCoefficientDP, BinomialCoefficientQ
   Public :: Odd
   Public :: Even
@@ -18,7 +17,13 @@ Module basicMaths
   Public :: RSSPoints
   Public :: Modulus
   Public :: CompareSign
-
+! Primitive recursive
+  Public :: Factorial, FactorialDP, FactorialQ
+  Public :: Fib
+! Recursive
+  Public :: Ackermann
+! Combinations and Permutations
+  Public :: combinationsPrint
 
 ! Interfaces
   Interface Modulus
@@ -36,60 +41,6 @@ Module basicMaths
     Integer(kind=StandardInteger) :: intOut
     intOut = Floor(dpIn+0.5D0)
   End Function RoundDP
-
-  Function Factorial(input) RESULT (output)
-! force declaration of all variables
-    Implicit None
-! declare variables
-    Integer(kind=StandardInteger) :: i,input
-    Integer(kind=StandardInteger) :: output
-! calculate factorial
-    output = 1
-    Do i=1,input
-      output = i * output
-    End Do
-  End Function Factorial
-
-  Function FactorialDP(input) RESULT (output)
-! force declaration of all variables
-    Implicit None
-! declare variables
-    Integer(kind=StandardInteger) :: i,input
-    Integer(kind=VeryLongInteger) :: tempInt
-    Real(kind=DoubleReal) :: output
-! calculate factorial
-    tempInt = 1
-    Do i=1,input
-      tempInt = i * tempInt
-    End Do
-    output = 1.0D0*tempInt
-  End Function FactorialDP
-
-  Function FactorialQ(input) RESULT (output)
-! force declaration of all variables
-    Implicit None
-! declare variables
-    Integer(kind=StandardInteger) :: i,input
-    Integer(kind=VeryLongInteger) :: tempInt
-    Real(kind=QuadrupoleReal) :: tempQ
-    Real(kind=QuadrupoleReal) :: output
-! calculate factorial
-    tempInt = 1
-    tempQ = 1
-    Do i=1,input
-      If(i.le.33)Then
-        tempInt = i * tempInt
-        tempQ = 1.0D0*tempInt
-      End If
-      If(i.eq.34)Then
-        tempQ = 1.0D0*i*tempInt
-      End If
-      If(i.ge.35)Then
-        tempQ = 1.0D0*i*tempQ
-      End If
-    End Do
-    output = tempQ
-  End Function FactorialQ
 
   Function BinomialCoefficient(n,k) RESULT (c)
 ! force declaration of all variables
@@ -237,6 +188,155 @@ Module basicMaths
   End Function CompareSign
 
 
+
+
+Function Factorial(input) RESULT (output)
+! force declaration of all variables
+  Implicit None
+! declare variables
+  Integer(kind=StandardInteger) :: i,input
+  Integer(kind=StandardInteger) :: output
+! calculate factorial
+  output = 1
+  Do i=1,input
+    output = i * output
+  End Do
+End Function Factorial
+
+Function FactorialDP(input) RESULT (output)
+! force declaration of all variables
+  Implicit None
+! declare variables
+  Integer(kind=StandardInteger) :: i,input
+  Integer(kind=VeryLongInteger) :: tempInt
+  Real(kind=DoubleReal) :: output
+! calculate factorial
+  tempInt = 1
+  Do i=1,input
+    tempInt = i * tempInt
+  End Do
+  output = 1.0D0*tempInt
+End Function FactorialDP
+
+Function FactorialQ(input) RESULT (output)
+! force declaration of all variables
+  Implicit None
+! declare variables
+  Integer(kind=StandardInteger) :: i,input
+  Integer(kind=VeryLongInteger) :: tempInt
+  Real(kind=QuadrupoleReal) :: tempQ
+  Real(kind=QuadrupoleReal) :: output
+! calculate factorial
+  tempInt = 1
+  tempQ = 1
+  Do i=1,input
+    If(i.le.33)Then
+      tempInt = i * tempInt
+      tempQ = 1.0D0*tempInt
+    End If
+    If(i.eq.34)Then
+      tempQ = 1.0D0*i*tempInt
+    End If
+    If(i.ge.35)Then
+      tempQ = 1.0D0*i*tempQ
+    End If
+  End Do
+  output = tempQ
+End Function FactorialQ
+
+
+  Function Fib(input) RESULT (output)
+! Fibonacci sequence
+    Implicit None ! Force declaration of all variables
+! In:      Declare variables
+    Integer(kind=StandardInteger) :: input
+! Out:     Declare variables
+    Integer(kind=StandardInteger) :: output
+! Private: Declare variables
+    Integer(kind=StandardInteger) :: i, nA, nB, nC
+! calculate fib
+    If(input.eq.1)Then
+      output = 1
+    Elseif(input.eq.2)Then
+      output = 1
+    Else
+      nA = 1
+      nB = 1
+      Do i=3,input
+        nC = nA + nB
+        nA = nB
+        nB = nC
+      End Do
+      output = nC
+    End If
+  End Function Fib
+
+  Recursive Function Ackermann(x,y) RESULT (z)
+! Ackermann recursive function
+    Implicit None ! Force declaration of all variables
+! In:      Declare variables
+    Integer(kind=StandardInteger) :: x, y
+! Out:     Declare variables
+    Integer(kind=StandardInteger) :: z
+
+    If(x.eq.0)Then
+      z = y + 1
+    Elseif(y.eq.0)Then
+      z = Ackermann(x-1,1)
+    Else
+      z = Ackermann(x-1,Ackermann(x,y-1))
+    End If
+  End Function Ackermann
+
+
+! ----------------------------------------------
+! Combinations and Permutations
+! ----------------------------------------------
+  Subroutine combinationsPrint(setSize, numbersUsed)
+! Uses inverse laplace transform to calculate isotope amounts at time t (after time = 0)
+! t time in seconds after t=0
+! w production rate of parent isotope
+! isotope chain data
+    Implicit None ! Force declaration of all variables
+! Vars In/Out
+    Integer(kind=StandardInteger) :: setSize, numbersUsed
+! Vars Private
+    Integer(kind=StandardInteger) :: i, j, k
+    Integer(kind=StandardInteger), Dimension(1:numbersUsed) :: combinationSet
+    Character(Len=1) :: charTemp
+    Character(Len=16) :: outTemp
+    Logical :: loopCombinations
+
+    Do i=1,numbersUsed
+      combinationSet(i) = i
+    End Do
+
+    loopCombinations = .true.
+    k = 0
+    Do while(loopCombinations)
+      k = k + 1
+      If(k.gt.1)Then
+        j = numbersUsed
+        Do i=1,numbersUsed
+          loopCombinations = .false.
+          If(combinationSet(j).lt.(setSize+1-i))Then
+            combinationSet(j) = combinationSet(j) + 1
+            loopCombinations = .true.
+            Exit
+          End If
+          j = j - 1
+        End Do
+      End If
+      If(loopCombinations)Then
+        outTemp = "                "
+        Do i=1,numbersUsed
+          Write(charTemp,"(I1)") combinationSet(i)
+          outTemp(i:i) = charTemp
+        End Do
+        print *,outTemp
+      End If
+    End Do
+  End Subroutine combinationsPrint
 
 
 

@@ -9,7 +9,7 @@ srcDirLib=$workingDirLib"/libBP/src"
 modDirLib=$workingDirLib"/libBP/mod"
 libDirLib=$workingDirLib"/libBP/lib"
 binDirLib=$workingDirLib"/libBP/bin"
-fortLine="mpif90 -g -O3 -Wall -Wno-unused-function \
+fortLine="mpif90 -g -Wall -Wno-unused-function \
 -fbounds-check -fcheck=all -mtune=native "  # -O3
 #----------------------------------------------------------------------------------
 mkdir -p $binDirLib
@@ -20,8 +20,10 @@ mkdir -p $modDirLib
 cd $srcDirLib
 buildFiles=""
 buildFiles=$buildFiles"kinds.f90 "
+buildFiles=$buildFiles"logicalMod.f90 "
 buildFiles=$buildFiles"strings.f90 "
-buildFiles=$buildFiles"general.f90  "
+buildFiles=$buildFiles"general.f90 "
+buildFiles=$buildFiles"env.f90 "
 buildFiles=$buildFiles"arrayFunctions.f90 "
 buildFiles=$buildFiles"constants.f90  "
 buildFiles=$buildFiles"units.f90 "
@@ -38,6 +40,7 @@ buildFiles=$buildFiles"vectors.f90  "
 buildFiles=$buildFiles"lmaM.f90 "
 buildFiles=$buildFiles"regression.f90  "
 buildFiles=$buildFiles"interpolation.f90 "
+buildFiles=$buildFiles"largeInt.f90 "
 buildFiles=$buildFiles"newtonGauss.f90 "
 buildFiles=$buildFiles"splinesFitting.f90 "
 buildFiles=$buildFiles"rngDist.f90 "
@@ -45,7 +48,9 @@ buildFiles=$buildFiles"coordFunctions.f90 "
 buildFiles=$buildFiles"activityFunctions.f90 "
 buildFiles=$buildFiles"plot.f90 "
 buildFiles=$buildFiles"geom.f90 "
+buildFiles=$buildFiles"qe.f90 "
 buildFiles=$buildFiles"maths.f90 "
+buildFiles=$buildFiles"testMod.f90 "
 buildFiles=$buildFiles"libBP.f90 "
 commandLine=$fortLine" -J "$modDirLib" -c "
 commandLine=$commandLine" "$buildFiles

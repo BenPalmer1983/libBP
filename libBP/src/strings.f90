@@ -3,9 +3,10 @@ Module strings
 ! Ben Palmer, University of Birmingham
 ! --------------------------------------------------------------!
   Use kinds
+  Use logicalMod
 ! Force declaration of all variables
   Implicit None
-! Public variables  
+! Public variables
   Integer(kind=LongInteger) :: randomLCG_n_strings=0
   Integer(kind=LongInteger) :: randomLCG_xn_strings
   Integer(kind=LongInteger) :: randomLCG_R_n_strings=0
@@ -21,8 +22,11 @@ Module strings
 ! ---- Functions
   Public :: StrToUpper
   Public :: StrToLower
+  Public :: StrReplace
   Public :: NumericOnly
+  Public :: SingleSpaces
   Public :: RemoveSpaces
+  Public :: RemoveSpacesQ
   Public :: TrimSpaces
   Public :: BlankString
   Public :: BlankStringArray
@@ -30,6 +34,7 @@ Module strings
   Public :: SpacesRight
   Public :: RemoveComments
   Public :: RemoveQuotes
+  Public :: RemoveTrailing
   Public :: IntToStr
   Public :: DpToStr
   Public :: StrToInt
@@ -38,23 +43,24 @@ Module strings
   Public :: RandName
   Public :: TempFileName
   Public :: CleanString
-! ---- Subroutines  
+  Public :: TimeToHuman
+! ---- Subroutines
   Public :: explode
   Public :: randCharacter
   Public :: TrimString
   Public :: StrCenter
-! Interfaces  
+! Interfaces
   Interface BlankStringArray
     Module Procedure BlankString1DArray, BlankString2DArray
   End Interface BlankStringArray
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Contains 
+  Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
- 
+
 ! ---------------------------------------------------------
 ! MODULE SUBROUTINES
 ! ---------------------------------------------------------
-  
+
 ! ---------------------------------------------------------
 ! MODULE FUNCTIONS
 ! ---------------------------------------------------------
@@ -96,6 +102,38 @@ Module strings
     End Do
   End Function StrToLower
 !---------------------------------------------------------------------------------------------------------------------------------------
+  Function StrReplace (input, needle, replace) RESULT (output)
+! Replace string
+    Implicit None  !Force declaration of all variables
+! Declare variables
+    Character(*) :: input
+    Character(*) :: needle
+    Character(*) :: replace
+! Out
+    Character(LEN(input)) :: output
+! Private
+    Integer(kind=StandardInteger) :: n, i, j, k
+! Loop through characters
+    j = 0
+    n = 0
+    Do i=1,Len(input)-len(needle)+1
+      n = n + 1
+      If((n+len(needle)-1).gt.Len(input))Then
+        Exit
+      End If
+      If(input(n:(n+len(needle)-1)).eq.needle)Then
+        n = n + len(needle)-1
+        Do k=1,len(replace)
+          j = j + 1
+          output(j:j) = replace(k:k)
+        End Do
+      Else
+        j = j + 1
+        output(j:j) = input(n:n)
+      End If
+    End Do
+  End Function StrReplace
+!---------------------------------------------------------------------------------------------------------------------------------------
   Function NumericOnly (input) RESULT (output)
 ! Returns factorial of input
     Implicit None  !Force declaration of all variables
@@ -118,10 +156,36 @@ Module strings
     End Do
   End Function NumericOnly
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Function RemoveSpaces (input) RESULT (output)
-! Returns factorial of input
+  Function SingleSpaces (input) RESULT (output)
+! Remove spaces
     Implicit None  !Force declaration of all variables
-! Declare variables    
+! Declare variables
+    Character(*) :: input
+    Character(Len(input)) :: output
+    Integer(kind=StandardInteger) :: i, j
+    Logical :: writeChar
+! Blank output
+    output = BlankString(output)
+! transfer outputtemp to output without spaces
+    j = 0
+    Do i=1,Len(input)
+      writeChar = .true.
+      If(i.lt.Len(input))Then
+        If(input(i:i).eq." ".and.input(i+1:i+1).eq." ")Then
+          writeChar = .false.
+        End If
+      End If
+      If(writeChar)Then
+        j = j + 1
+        output(j:j) = input(i:i)
+      End If
+    End Do
+  End Function SingleSpaces
+!---------------------------------------------------------------------------------------------------------------------------------------
+  Function RemoveSpaces (input) RESULT (output)
+! Remove spaces
+    Implicit None  !Force declaration of all variables
+! Declare variables
     Character(*), Intent(IN) :: input
     Character(Len(input)) :: outputTemp
     Character(Len(input)) :: output
@@ -142,18 +206,52 @@ Module strings
     End Do
   End Function RemoveSpaces
 !---------------------------------------------------------------------------------------------------------------------------------------
+  Function RemoveSpacesQ (input) RESULT (output)
+! Removes spaces, not within quotation marks
+    Implicit None  !Force declaration of all variables
+! Declare variables
+    Character(*), Intent(IN) :: input
+    Character(Len(input)) :: output
+    Integer(kind=StandardInteger) :: i, j, inLen
+    Logical :: inQuotes
+! Remove spaces
+    output = BlankString(output)
+    inQuotes = .false.
+    inLen = len(input)
+    j = 0
+    Do i=1,inLen
+      If(ichar(input(i:i)).eq.34)Then
+        j = j + 1
+        inQuotes = FlipLogical(inQuotes)
+        output(j:j) = input(i:i)
+      Else
+        If(input(i:i).eq." ")Then
+          If(inQuotes)Then
+            j = j + 1
+            output(j:j) = input(i:i)
+          Else
+            ! skip
+          End If
+        Else
+          j = j + 1
+          output(j:j) = input(i:i)
+        End If
+      End If
+    End Do
+  End Function RemoveSpacesQ
+!---------------------------------------------------------------------------------------------------------------------------------------
   Function TrimSpaces(trimStr, padCharIn) Result (workingStr)
-! Trims 
-    Implicit None  ! Force declaration of all variables 
+! Trims
+    Implicit None  ! Force declaration of all variables
 ! In/Out:      Declare variables
-    Character(*) :: trimStr  
-    Character(Len=1), Optional :: padCharIn 
-! Private:     Declare variables  
-    Character(Len(trimStr)) :: workingStr 
+    Character(*) :: trimStr
+    Character(Len=1), Optional :: padCharIn
+! Private:     Declare variables
+    Character(Len(trimStr)) :: workingStr
     Integer(kind=StandardInteger) :: i, j, k, inputLen
     Logical :: store
-    Character(Len=1) :: padChar 
-! Optional Argument    
+    Character(Len=1) :: padChar
+! Optional Argument
     padChar(1:1) = ""
     If(Present(padCharIn))Then
       padChar(1:1) = padCharIn(1:1)
@@ -170,7 +268,7 @@ Module strings
         j = j + 1
         workingStr(j:j) = trimStr(i:i)
       End If
-    End Do  
+    End Do
     j = j + 1
     If(j.lt.inputLen)Then
       Do k=j,inputLen
@@ -184,9 +282,9 @@ Module strings
         workingStr(k:k) = padChar(1:1)
       Else
         Exit
-      End If  
+      End If
     End Do
-  End Function TrimSpaces   
+  End Function TrimSpaces
 
     Function BlankString (input) RESULT (output)
       Character(*), INTENT(IN) :: input
@@ -224,7 +322,7 @@ Module strings
       End Do
     End Do
   End Function BlankString2DArray
-  
+
   Function Spaces (length) RESULT (output)
     Integer(kind=StandardInteger), INTENT(IN) :: length
     Character(Len=length) :: output
@@ -233,7 +331,7 @@ Module strings
       output(i:i) = " "
     End Do
   End Function Spaces
-    
+
   Function SpacesRight (input) RESULT (output)
 ! Adds spaces to right of string
     Character(*), INTENT(IN) :: input
@@ -281,27 +379,66 @@ Module strings
       End If
     End Do
   End Function RemoveQuotes
-  
+
+  Function RemoveTrailing (input, trailingIn) RESULT (output)
+! Returns TRUE if A larger than B
+    Implicit None ! Force declaration of all variables
+! In:      Declare variables
+    Character(*), INTENT(IN) :: input
+    Character(Len=1), Optional :: trailingIn
+! Out:     Declare variables
+    Character(Len(input)) :: output
+! Private
+    Character(Len=1) :: trailing
+    Integer(kind=StandardInteger) :: i, j, inLen, trailingFlag
+! Optional
+    trailing = "."
+    If(Present(trailingIn))Then
+      trailing = trailingIn
+    End If
+! Read backwards
+    inLen = Len(input)
+    j = inLen
+    trailingFlag = 1
+    Do i=1,inLen
+      If(trailingFlag.eq.1.and.ichar(input(j:j)).ne.32)Then
+        trailingFlag = 2
+      End If
+      If(trailingFlag.eq.2)Then
+        If(input(j:j).eq.trailing(1:1))Then
+          output(j:j) = " "
+        Else
+          output(j:j) = input(j:j)
+        End If
+        trailingFlag = 3
+        j = j - 1
+      Else
+        output(j:j) = input(j:j)
+        j = j - 1
+      End If
+    End Do
+  End Function RemoveTrailing
+
   Function IntToStr (input) RESULT (output)
 ! Apply style to last dataset added (unless otherwise specified)
-    Implicit None  ! Force declaration of all variables  
-  ! In:      Declare variables  
+    Implicit None  ! Force declaration of all variables
+  ! In:      Declare variables
     Integer(kind=StandardInteger) :: input
-  ! Out:     Declare variables    
+  ! Out:     Declare variables
     Character(Len=16) :: output
     Write(output,"(I16)") input
     output = trim(adjustl(output))
   End Function IntToStr
-  
+
   Function DpToStr (input, numFormatIn) RESULT (output)
 ! Apply style to last dataset added (unless otherwise specified)
-    Implicit None  ! Force declaration of all variables  
-  ! In:      Declare variables  
+    Implicit None  ! Force declaration of all variables
+  ! In:      Declare variables
     Real(kind=DoubleReal) :: input
     Character(*), Optional :: numFormatIn
-  ! Out:     Declare variables    
+  ! Out:     Declare variables
     Character(Len=16) :: output
-  ! Private: Declare variables   
+  ! Private: Declare variables
     Character(Len=12) :: numFormat
     numFormat = "(E16.8)"
     If(Present(numFormatIn))Then
@@ -310,35 +447,35 @@ Module strings
     Write(output,numFormat) input
     output = trim(adjustl(output))
   End Function DpToStr
-  
+
   Function StrToInt (input) RESULT (output)
 ! Apply style to last dataset added (unless otherwise specified)
-    Implicit None  ! Force declaration of all variables  
-  ! In:      Declare variables  
+    Implicit None  ! Force declaration of all variables
+  ! In:      Declare variables
     Character(*) :: input
-  ! Out:     Declare variables    
+  ! Out:     Declare variables
     Integer(kind=StandardInteger) :: output
     output = 0
     Read(input,*) output
   End Function StrToInt
-  
+
   Function StrToDp (input) RESULT (output)
 ! Apply style to last dataset added (unless otherwise specified)
-    Implicit None  ! Force declaration of all variables  
-  ! In:      Declare variables  
+    Implicit None  ! Force declaration of all variables
+  ! In:      Declare variables
     Character(*) :: input
-  ! Out:     Declare variables    
+  ! Out:     Declare variables
     Real(kind=DoubleReal) :: output
     output = 0.0D0
     Read(input,*) output
   End Function StrToDp
-   
+
   Function StrToBool (inputIn) RESULT (output)
 ! converts a user input into true/false bool
-    Implicit None  ! Force declaration of all variables  
-  ! In:      Declare variables  
+    Implicit None  ! Force declaration of all variables
+  ! In:      Declare variables
     Character(*) :: inputIn
-  ! Out:     Declare variables    
+  ! Out:     Declare variables
     Logical :: output
   ! Private: Declare variables
     Character(len=6) :: input
@@ -360,15 +497,15 @@ Module strings
     If(input(1:6).eq.".TRUE.")Then
       output = .true.
     End If
-  End Function StrToBool  
-  
+  End Function StrToBool
+
   Function RandName(randSwitchIn, prefixIn) Result (randNameOut)
 ! Make a random 8 character "name"
-    Implicit None  ! Force declaration of all variables  
+    Implicit None  ! Force declaration of all variables
 ! In:      Declare variables
     Logical, Optional :: randSwitchIn
     Character(*), Optional :: prefixIn
-! Out:     Declare variables    
+! Out:     Declare variables
     Character(len=8) :: randNameOut
 ! Private: Declare variables
     Logical :: randSwitch
@@ -385,9 +522,9 @@ Module strings
     If(Present(prefixIn))Then
       prefix = prefixIn
     End If
-! Init output   
+! Init output
     randNameOut = "        "
-! Loop through letters    
+! Loop through letters
     Do i=1,8
       If(prefix(i:i).eq." ")Then
         writePrefix = .false.
@@ -399,35 +536,35 @@ Module strings
         randNameOut(i:i) = randChar
       End If
     End Do
-  End Function RandName  
-    
+  End Function RandName
+
   Function TempFileName(randSwitchIn) Result (fileNameOut)
 ! Make random name for temp file
-    Implicit None  ! Force declaration of all variables  
+    Implicit None  ! Force declaration of all variables
 ! In:      Declare variables
     Logical, Optional :: randSwitchIn
-! Out:     Declare variables    
-    Character(len=8) :: fileNameOut  
+! Out:     Declare variables
+    Character(len=8) :: fileNameOut
 ! Private: Declare variables
     Logical :: randSwitch
 ! Optional
     randSwitch = .true.
     If(Present(randSwitchIn))Then
       randSwitch = randSwitchIn
-    End If    
+    End If
 ! Init
-    fileNameOut = "        " 
-! Make name    
-    fileNameOut = RandName(randSwitch, "tmp")  
+    fileNameOut = "        "
+! Make name
+    fileNameOut = RandName(randSwitch, "tmp")
   End Function TempFileName
-      
+
   Function CleanString(stringIn) Result (stringOut)
 ! Clean a string - a-z A-Z 0-9 space
-    Implicit None  ! Force declaration of all variables 
+    Implicit None  ! Force declaration of all variables
 ! In:      Declare variables
-    Character(*) :: stringIn  
-! Out:     Declare variables  
-    Character(Len(stringIn)) :: stringOut     
+    Character(*) :: stringIn
+! Out:     Declare variables
+    Character(Len(stringIn)) :: stringOut
 ! Private: Declare variables
     Integer(kind=StandardInteger) :: i, n, charVal
 ! Blank output string
@@ -444,23 +581,72 @@ Module strings
       End If
     End Do
   End Function CleanString
-  
-  
-  
-  
-  
-  
+
+
+  Function TimeToHuman(timeIn) Result (stringOut)
+! Converst time in seconds to more human friendly version
+    Implicit None  ! Force declaration of all variables
+! In:      Declare variables
+    Real(kind=DoubleReal) :: timeIn
+! Out:     Declare variables
+    Character(Len=128) :: stringOut
+! Private: Declare variables
+    Real(kind=DoubleReal) :: timeSeconds
+    Integer(kind=StandardInteger) :: years=0
+    Integer(kind=StandardInteger) :: days=0
+    Integer(kind=StandardInteger) :: hours=0
+    Integer(kind=StandardInteger) :: minutes=0
+    Real(kind=DoubleReal) :: seconds=0.0D0
+!
+    timeSeconds = timeIn
+    If(timeSeconds.gt.31557600.0D0)Then
+      years = Floor(timeSeconds/31557600.0D0)
+      timeSeconds = timeSeconds-31557600.0D0*years
+    End If
+    If(timeSeconds.gt.86400.0D0)Then
+      days = Floor(timeSeconds/86400.0D0)
+      timeSeconds = timeSeconds-86400.0D0*days
+    End If
+    If(timeSeconds.gt.3600.0D0)Then
+      hours = Floor(timeSeconds/3600.0D0)
+      timeSeconds = timeSeconds-3600.0D0*hours
+    End If
+    If(timeSeconds.gt.60.0D0)Then
+      minutes = Floor(timeSeconds/60.0D0)
+      timeSeconds = timeSeconds-60.0D0*minutes
+    End If
+    seconds = timeSeconds
+    stringOut = BlankString(stringOut)
+    If(years.gt.0)Then
+      stringOut = trim(stringOut)//" "//adjustl(trim(IntToStr(years)))//" yr "
+    End If
+    If(days.gt.0)Then
+      stringOut = trim(stringOut)//" "//adjustl(trim(IntToStr(days)))//" d "
+    End If
+    If(hours.gt.0)Then
+      stringOut = trim(stringOut)//" "//adjustl(trim(IntToStr(hours)))//" hr "
+    End If
+    If(minutes.gt.0)Then
+      stringOut = trim(stringOut)//" "//adjustl(trim(IntToStr(minutes)))//" min "
+    End If
+    stringOut = trim(stringOut)//" "//adjustl(trim(DpToStr(seconds,"(F10.3)")))//" s "
+    stringOut = trim(adjustl(stringOut))
+  End Function TimeToHuman
+
+
+
+
 ! ---------------------------------------------------------
 ! MODULE SUBROUTINES
-! ---------------------------------------------------------  
-  
+! ---------------------------------------------------------
+
   Subroutine explode(inputString, fieldSplit, outputArray, outputCount)
 ! In/Out:  Declare variables
     Character(*) :: inputString
     Character(*) :: fieldSplit
     Character(*), Dimension(:) :: outputArray
     Integer(kind=StandardInteger) :: outputCount
-! Private: Declare variables    
+! Private: Declare variables
     Character(Len(fieldSplit)) :: trialSegment
     Integer(kind=StandardInteger) :: fieldCount
     Integer(kind=StandardInteger) :: lenInput
@@ -485,23 +671,23 @@ Module strings
           fieldCount = fieldCount + 1
           n = 0
           charI = charI+lenSplit-1
-        Else  
+        Else
           n = n + 1
           outputArray(fieldCount)(n:n) = inputString(charI:charI)
-        End If  
+        End If
         If(charI.ge.lenInput)Then
           Exit
-        End If  
+        End If
       End Do
 ! process last field
       Do k=n+1,len(outputArray)
         outputArray(fieldCount)(k:k) = " "
       End Do
 ! store field count
-      outputCount = fieldCount      
+      outputCount = fieldCount
     End If
-  End Subroutine explode 
-  
+  End Subroutine explode
+
   Subroutine randCharacter(letter, randSwitchIn, setIn)
 ! In/Out:      Declare variables
     Character(len=1) :: letter
@@ -555,18 +741,18 @@ Module strings
   End Subroutine randCharacter
 
   Subroutine TrimString(trimStr, outputLength, padCharIn)
-! Trims 
-    Implicit None  ! Force declaration of all variables 
+! Trims
+    Implicit None  ! Force declaration of all variables
 ! In/Out:      Declare variables
-    Character(*) :: trimStr  
+    Character(*) :: trimStr
     Integer(kind=StandardInteger) :: outputLength
-    Character(Len=1), Optional :: padCharIn 
-! Private:     Declare variables  
-    Character(Len(trimStr)) :: workingStr 
+    Character(Len=1), Optional :: padCharIn
+! Private:     Declare variables
+    Character(Len(trimStr)) :: workingStr
     Integer(kind=StandardInteger) :: i, j, k, inputLen
     Logical :: store
-    Character(Len=1) :: padChar 
-! Optional Argument    
+    Character(Len=1) :: padChar
+! Optional Argument
     padChar(1:1) = ""
     If(Present(padCharIn))Then
       padChar(1:1) = padCharIn(1:1)
@@ -583,7 +769,7 @@ Module strings
         j = j + 1
         workingStr(j:j) = trimStr(i:i)
       End If
-    End Do  
+    End Do
     j = j + 1
     If(j.lt.inputLen)Then
       Do k=j,inputLen
@@ -598,48 +784,48 @@ Module strings
         workingStr(k:k) = padChar(1:1)
       Else
         Exit
-      End If  
+      End If
     End Do
     outputLength = inputLen-j
     Do i=1,inputLen
       trimStr(i:i) = workingStr(i:i)
     End Do
-  End Subroutine TrimString   
-  
-  
+  End Subroutine TrimString
+
+
   Subroutine StrCenter(strIn, tarLenIn)
-! Trims 
-    Implicit None  ! Force declaration of all variables 
+! Trims
+    Implicit None  ! Force declaration of all variables
 ! In/Out:      Declare variables
-    Character(*) :: strIn  
+    Character(*) :: strIn
     Integer(kind=StandardInteger), Optional :: tarLenIn
-! Private:     Declare variables    
+! Private:     Declare variables
     Character(Len(strIn)) :: str
-    Integer(kind=StandardInteger) :: i, j, trimmedLen, lenStrIn, paddingL, paddingR    
-! length of useable string    
+    Integer(kind=StandardInteger) :: i, j, trimmedLen, lenStrIn, paddingL, paddingR
+! length of useable string
     lenStrIn = Len(strIn)
     If(Present(tarLenIn))Then
       lenStrIn = tarLenIn
     End If
     str = strIn
-    Call TrimString(str, trimmedLen, " ")    
+    Call TrimString(str, trimmedLen, " ")
     paddingL = floor((lenStrIn-trimmedLen)/2.0D0)
-    paddingR = (lenStrIn-trimmedLen)-paddingL    
+    paddingR = (lenStrIn-trimmedLen)-paddingL
     j=0
     Do i=1,paddingL
       j = j + 1
       strIn(j:j) = " "
-    End Do  
+    End Do
     Do i=1,trimmedLen
       j = j + 1
       strIn(j:j) = str(i:i)
-    End Do  
+    End Do
     Do i=1,paddingR
       j = j + 1
       strIn(j:j) = " "
-    End Do  
-  End Subroutine StrCenter  
-  
+    End Do
+  End Subroutine StrCenter
+
 !---------------------------------------------------------------------------------------------------------------------------------------
 ! String random number functions (as these are loaded AFTER strings MOD with the rng MOD
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -680,8 +866,8 @@ Module strings
 ! calculate
     randomLCG_xn_strings = mod((a*randomLCG_xn_strings+c),m)
     output = (1.0D0*randomLCG_xn_strings)/(1.0D0*m)
-  End Function RandomLCG_strings 
-  
+  End Function RandomLCG_strings
+
   Function RandomLCG_R_strings() RESULT (output)
 ! Random number - linear congruential generator
 ! This function starts with a random seed
@@ -701,7 +887,7 @@ Module strings
     If(randomLCG_R_n_strings.eq.0)Then
 ! Make "random" seed
       Call SYSTEM_CLOCK(clockTime) ! "nano seconds" - well, an estimate
-      seed = mod(clockTime,m)      
+      seed = mod(clockTime,m)
       Do i=1,10
         seed = mod((a*seed+c),m)
       End Do

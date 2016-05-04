@@ -18,11 +18,13 @@ Module splinesFitting
   Implicit None
 ! Public variables
   Character(Len=128), Dimension(1:20) :: fittingReport
+  Real(kind=DoubleReal), Dimension(1:1000,1:10) :: splineCoeffs
 ! Make private
   Private
 ! Public
 ! --variables--!
   Public :: fittingReport
+  Public :: splineCoeffs
 ! --- Functions - Fitting
   Public :: BirchMurnFit
   Public :: ExpFit
@@ -1154,7 +1156,7 @@ dataSize,splineTypeIn,forceCalcDervIn,interpNodeIn) RESULT (dataPoints)
   Real(kind=DoubleReal), Dimension(1:(endPoint-startPoint+1),1:4) :: splineNodeArr
   Real(kind=DoubleReal), Dimension(1:(endPoint-startPoint+1),1:2) :: interpeNodesArr
   Integer(kind=StandardInteger) :: i, j, nodeKey, nodeCount, nodeCountI, interpKey
-  Real(kind=DoubleReal), Dimension(1:dataSize,1:4) :: dataPoints
+  Real(kind=DoubleReal), Dimension(1:dataSize,1:4) :: dataPoints ! output data points
   Real(kind=DoubleReal) :: x, xStart, xEnd, xIncrement
   Real(kind=DoubleReal), Dimension(1:6) :: coefficients
   Real(kind=DoubleReal), Dimension(1:4) :: expThird
@@ -1182,6 +1184,7 @@ dataSize,splineTypeIn,forceCalcDervIn,interpNodeIn) RESULT (dataPoints)
     interpNode = interpNodeIn
   End If
 ! Init Variables
+  splineCoeffs = 0.0D0
   nodeMap = 0
   interpPoints = 0.0D0
   dataPoints = 0.0D0
@@ -1243,7 +1246,7 @@ dataSize,splineTypeIn,forceCalcDervIn,interpNodeIn) RESULT (dataPoints)
 ! Loop through data points
   nodeKey = 0
   x = xStart
-  Do i=1,numDataPoints
+  Do i=1,numDataPoints  ! loop through data points being output
     If((i.eq.1).or.(x.ge.splineNodeArr(nodeKey+1,1).and.(nodeKey+1).lt.nodeCount))Then
       nodeKey = nodeKey + 1
       pointA(1) = splineNodeArr(nodeKey,1)
@@ -1256,6 +1259,9 @@ dataSize,splineTypeIn,forceCalcDervIn,interpNodeIn) RESULT (dataPoints)
       pointB(4) = splineNodeArr(nodeKey+1,4)
       If(splineType(nodeKey).eq.1)Then           ! Normal 5th order spline
         coefficients = SplineAB(pointA, pointB)
+        Do j=1,6
+          splineCoeffs(nodeKey,j) = coefficients(j)
+        End Do
       End If
       If(splineType(nodeKey).eq.2)Then           ! exp(3rd order)
         pointAA(1) = pointA(1)
@@ -1265,14 +1271,19 @@ dataSize,splineTypeIn,forceCalcDervIn,interpNodeIn) RESULT (dataPoints)
         pointBB(2) = pointB(2)
         pointBB(3) = pointB(3)
         expThird = SplineAB(pointAA, pointBB, 2)
+        Do j=1,4
+          splineCoeffs(nodeKey,j) = expThird(j)
+        End Do
       End If
       If(splineType(nodeKey).eq.3)Then           ! exp(5th order)
         expFifth = SplineExpFifth(pointA(1),pointA(2),pointA(3),pointA(4),&
         pointB(1),pointB(2),pointB(3),pointB(4))
+        Do j=1,6
+          splineCoeffs(nodeKey,j) = expFifth(j)
+        End Do
       End If
       If(splineType(nodeKey).eq.4.and.nodeKey.eq.1)Then           ! embedding function F(p) = a+bp^0.5+bp^2+dp^4
         embFuncC = FitEmbeddingC(splineNodeArr,1,nodeCount)
-
       End If
       If(splineType(nodeKey).eq.5.and.nodeKey.eq.1)Then           ! density function p(r) = a r^2 exp(b r^2) + c r^2 exp(d r^2)
         densFunc = FitDensity(splineNodeArr,1,nodeCount)

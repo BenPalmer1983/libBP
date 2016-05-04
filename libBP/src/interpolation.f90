@@ -9,7 +9,7 @@ Module interpolation
   Use linearAlgebra
 ! Force declaration of all variables
   Implicit None
-! Public variables  
+! Public variables
 ! Make private
   Private
 ! Public
@@ -20,12 +20,12 @@ Module interpolation
   Public :: InterpPoints
   Public :: FullInterp
   Public :: FullInterpPoints
-! Interfaces  
+! Interfaces
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Contains 
+  Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
-  
+
   Function InterpLagrange(x, points, derivativeIn) RESULT (output)
 ! Calculates y(x), y'(x) or y''(x) using Lagrange interpolation
     Implicit None  !Force declaration of all variables
@@ -219,8 +219,8 @@ Module interpolation
       xLower = points(inputStart,1)
       xUpper = points(inputEnd,1)
       If(verbose)Then
-        print *,inputStart,inputEnd
-        print *,xLower,xUpper
+        print *,"Input Start: ",inputStart,"Input End: ",inputEnd
+        print *,"Start/Lower Val: ",xLower,"End/Upper Val: ",xUpper
       End If
 ! Find xPos
       If(x.lt.xLower)Then  !If x lower than data set, use lowest possible points
@@ -299,13 +299,13 @@ Module interpolation
       yArray(3) = InterpLagrange(x, pointsInterp, 2)
     End If
   End Function PointInterp
-  
-  
-  
+
+
+
 ! ---------------------------------------------
 ! Interpolation Fitting
 ! ---------------------------------------------
-  
+
   Function InterpPoints(dataPointsIn, pointsOutCount, interpNodes) RESULT (dataPointsOut)
 ! Force declaration of all variables
     Implicit None
@@ -324,23 +324,23 @@ Module interpolation
     Real(kind=DoubleReal), Dimension(1:interpNodes,1:2) :: interpArray
 ! Init
     pointsInCount = size(dataPointsIn,1)
-    xStart = dataPointsIn(1,1)    
-    xEnd = dataPointsIn(pointsInCount,1)    
+    xStart = dataPointsIn(1,1)
+    xEnd = dataPointsIn(pointsInCount,1)
     xInc = (xEnd-xStart)/(pointsOutCount-1.0D0)
 ! Loop through points to make
     n = 1
     Do i=1,pointsOutCount
-! Output node x val    
+! Output node x val
       x = xStart+(i-1)*xInc
-! Input node x lower/upper    
+! Input node x lower/upper
       xLower = dataPointsIn(n,1)
-      xUpper = dataPointsIn(n+1,1)      
+      xUpper = dataPointsIn(n+1,1)
 ! Get spline coefficients
-      If(i.eq.1.or.x.gt.xUpper)Then 
+      If(i.eq.1.or.x.gt.xUpper)Then
 ! Find start and end node
         Do k=n,(pointsInCount-1)
           xLower = dataPointsIn(k,1)
-          xUpper = dataPointsIn(k+1,1)        
+          xUpper = dataPointsIn(k+1,1)
           If(x.ge.xLower.and.x.le.xUpper)Then
             n = k
           End If
@@ -358,7 +358,7 @@ Module interpolation
         interpArray = 0.0D0
         Do j=1,interpNodes
           interpArray(j,1) = dataPointsIn(k+(j-1),1)
-          interpArray(j,2) = dataPointsIn(k+(j-1),2)      
+          interpArray(j,2) = dataPointsIn(k+(j-1),2)
         End Do
       End If
 ! store output points
@@ -366,8 +366,8 @@ Module interpolation
       dataPointsOut(i,2) = InterpLagrange(x,interpArray,0)
     End Do
   End Function InterpPoints
-  
-  
+
+
   Function FullInterp(dataPoints) RESULT (coefficients)
 ! Ax = y
 ! Exact fit of (N-1) polynomial to N data points
@@ -382,17 +382,17 @@ Module interpolation
     Integer(kind=StandardInteger) :: row, col, matSize
 ! Init
     matSize = size(dataPoints,1)
-! Make Y matrix and A matrix    
+! Make Y matrix and A matrix
     Do row = 1,matSize
       Do col = 1,matSize
-        A(row,col) = 1.0D0*dataPoints(row,1)**(col-1.0D0)         
-      End Do  
+        A(row,col) = 1.0D0*dataPoints(row,1)**(col-1.0D0)
+      End Do
       Y(row) = 1.0D0*dataPoints(row,2)
     End Do
 ! Solve
-    coefficients = SolveLinearSet(A,Y) 
+    coefficients = SolveLinearSet(A,Y)
   End Function FullInterp
-  
+
   Function FullInterpPoints(dataPoints, pointsOutCount) RESULT (dataPointsOut)
 ! Force declaration of all variables
     Implicit None
@@ -408,19 +408,19 @@ Module interpolation
     Real(kind=DoubleReal) :: xStart,xEnd,xInc
 ! Init
     pointsInCount = size(dataPoints,1)
-    xStart = dataPoints(1,1)    
-    xEnd = dataPoints(pointsInCount,1)    
+    xStart = dataPoints(1,1)
+    xEnd = dataPoints(pointsInCount,1)
     xInc = (xEnd-xStart)/(pointsOutCount-1.0D0)
-! Fit Points    
+! Fit Points
     coefficients = FullInterp(dataPoints)
 ! Loop through points to make
     Do i=1,pointsOutCount
-! Output node x val    
-      x = xStart+(i-1)*xInc      
+! Output node x val
+      x = xStart+(i-1)*xInc
 ! store output points
       dataPointsOut(i,1) = x
       dataPointsOut(i,2) = CalcPolynomial(coefficients,x)
-    End Do  
+    End Do
   End Function FullInterpPoints
 
 End Module interpolation
