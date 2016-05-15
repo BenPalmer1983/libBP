@@ -1,6 +1,9 @@
-Script:       Energies/Forces
+Script:       List Fortran Subroutines and Functions
 Working dir:  /code/lib/libBP/src
 User:         ben
+========================================================================
+Module activityFunctionsTypes        activityFunctions.f90
+========================================================================
 ========================================================================
 Module activityFunctions        activityFunctions.f90
 ========================================================================
@@ -9,6 +12,21 @@ Module activityFunctions        activityFunctions.f90
   Function MaxTrajDepth(coefficients, maxDepthIn) RESULT (maxDepth)
   Function ArraySize1DDouble (inputArray,arraySize) RESULT (outputArray)
   Function ArraySize2DDouble (inputArray,arraySizeHeight,arraySizeWidthIn) &
+  Subroutine ActivityCompareGS(lambda, dataPointsCount, endTime, nAtoms, productionRate)
+  Subroutine decayChainComplete(decayChain)
+  Subroutine decayChainPrint(decayChain)
+  Subroutine CalcIsotopeChainGS(decayChain)
+  Subroutine CalcIsotopeChain(decayChain)
+  Subroutine DecayBreakInfinities(L,n)
+  Function CalcIsotopeChainCalc(t,m,W,L,N,B) Result (nEnd)
+  Function CalcIsotopeChainMultR(k,m,L,B) Result (multR)
+  Function CalcIsotopeChainF_Unstable(k,m,t,mult,L) Result (nChange)
+  Function CalcIsotopeChainG_Unstable(k,m,t,mult,L) Result (nChange)
+  Function CalcIsotopeChainF_Stable(k,mIn,t,mult,L) Result (nChange)
+  Function CalcIsotopeChainG_Stable(k,mIn,t,mult,L) Result (nChange)
+  Function CalcIsotopeChainC(L,k,m) Result (numerator)
+  Subroutine CalcActivities(decayChain,activityTime,endTime,zeroProductionTimeIn)
+  Subroutine CalcActivitiesPrint(decayChain,activityTime,tableIn)
 ========================================================================
 Module arrayFunctions        arrayFunctions.f90
 ========================================================================
@@ -33,18 +51,21 @@ Module basicMaths        basicMaths.f90
 ========================================================================
   Interface Modulus
   Function RoundDP(dpIn) RESULT (intOut)
-  Function Factorial(input) RESULT (output)
-  Function FactorialDP(input) RESULT (output)
-  Function FactorialQ(input) RESULT (output)
   Function BinomialCoefficient(n,k) RESULT (c)
   Function BinomialCoefficientDP(n,k) RESULT (c)
   Function BinomialCoefficientQ(n,k) RESULT (c)
   Function Odd(input) RESULT (output)
   Function Even(input) RESULT (output)
   Function RSSCalc(inputA, inputB, factorIn) RESULT (output)
+  Function RSSPoints(xArr, yArr) RESULT (output)
   Function Modulus_I(x, divisor) RESULT (y)
   Function Modulus_R(x, divisor) RESULT (y)
   Function CompareSign(x,y) Result (output)
+  Function Factorial(input) RESULT (output)
+  Function FactorialDP(input) RESULT (output)
+  Function FactorialQ(input) RESULT (output)
+  Function Fib(input) RESULT (output)
+  Subroutine combinationsPrint(setSize, numbersUsed)
 ========================================================================
 Module calcFunctions        calcFunctions.f90
 ========================================================================
@@ -68,6 +89,11 @@ Module coordFunctions        coordFunctions.f90
   Function TransformCoords (xVect, tVect) RESULT (xPVect)
   Function RdCoords (xVect, yVect) RESULT (rd)
   Function HeatCoords (inCoords, maxVar) RESULT (outCoords)
+========================================================================
+Module env        env.f90
+========================================================================
+  Subroutine systemR(commandIn, commandOut)
+  Subroutine progInstalled(progName)
 ========================================================================
 Module functionPoints        functionPoints.f90
 ========================================================================
@@ -141,10 +167,31 @@ Module interpolation        interpolation.f90
 Module kinds        kinds.f90
 ========================================================================
 ========================================================================
+Module laplaceTransforms        laplaceTransforms_changed
+========================================================================
+  Function GaverStehfestWeighting(N, weightingIn) RESULT (weighting)
+  Function GaverStehfestWeightingQ(N, weightingIn) RESULT (weighting)
+  Function GaverStehfest(funcInS, t, p, mIn) RESULT (ft)
+  Function ltDecay(s, p) RESULT (fs)
+  Function ltExp(s, p) RESULT (fs)
+========================================================================
 Module laplaceTransforms        laplaceTransforms.f90
 ========================================================================
   Function GaverStehfestWeighting(N, weightingIn) RESULT (weighting)
   Function GaverStehfestWeightingQ(N, weightingIn) RESULT (weighting)
+  Function GaverStehfest(funcInS, t, p, mIn) RESULT (ft)
+  Function ltDecay(s, p) RESULT (fs)
+  Function ltExp(s, p) RESULT (fs)
+========================================================================
+Module largeIntTypes        largeInt.f90
+========================================================================
+========================================================================
+Module largeInt        largeInt.f90
+========================================================================
+  Function ALargerThanB(liA, liB) RESULT (result)
+  Subroutine storeLargeInt(objIn, valIn)
+  Subroutine printLargeInt(objIn)
+  Subroutine multLargeInt(vli)
 ========================================================================
 Module libBP        libBP.f90
 ========================================================================
@@ -165,6 +212,10 @@ Module lmaM        lmaM.f90
   Function LMA_BirchMurn(x,parameters,pSize) RESULT (y)
   Function LMA_Exp(x,parameters,pSize) RESULT (y)
   Function LMA_ExpDens(x,parameters,pSize) RESULT (y)
+========================================================================
+Module logicalMod        logicalMod.f90
+========================================================================
+  Function FlipLogical(logicalIn) RESULT (logicalOut)
 ========================================================================
 Module maths        maths.f90
 ========================================================================
@@ -222,6 +273,14 @@ Module printMod        printMod.f90
   Subroutine headerRow(table)
   Subroutine dataRow(table, row)
   Subroutine dataRows(table)
+========================================================================
+Module qeTypes        qe.f90
+========================================================================
+========================================================================
+Module qe        qe.f90
+========================================================================
+  Subroutine readPwscfInput(filePath,qeInObj)
+  Subroutine writePwscfInput(filePath,qeInObj)
 ========================================================================
 Module regression        regression.f90
 ========================================================================
@@ -282,8 +341,11 @@ Module strings        strings.f90
   Interface BlankStringArray
   Function StrToUpper (input) RESULT (output)
   Function StrToLower (input) RESULT (output)
+  Function StrReplace (input, needle, replace) RESULT (output)
   Function NumericOnly (input) RESULT (output)
+  Function SingleSpaces (input) RESULT (output)
   Function RemoveSpaces (input) RESULT (output)
+  Function RemoveSpacesQ (input) RESULT (output)
   Function TrimSpaces(trimStr, padCharIn) Result (workingStr)
   Function BlankString (input) RESULT (output)
   Function BlankString1DArray (input) RESULT (output)
@@ -292,6 +354,7 @@ Module strings        strings.f90
   Function SpacesRight (input) RESULT (output)
   Function RemoveComments (input) RESULT (output)
   Function RemoveQuotes (input) RESULT (output)
+  Function RemoveTrailing (input, trailingIn) RESULT (output)
   Function IntToStr (input) RESULT (output)
   Function DpToStr (input, numFormatIn) RESULT (output)
   Function StrToInt (input) RESULT (output)
@@ -300,12 +363,22 @@ Module strings        strings.f90
   Function RandName(randSwitchIn, prefixIn) Result (randNameOut)
   Function TempFileName(randSwitchIn) Result (fileNameOut)
   Function CleanString(stringIn) Result (stringOut)
+  Function TimeToHuman(timeIn) Result (stringOut)
   Subroutine explode(inputString, fieldSplit, outputArray, outputCount)
   Subroutine randCharacter(letter, randSwitchIn, setIn)
   Subroutine TrimString(trimStr, outputLength, padCharIn)
   Subroutine StrCenter(strIn, tarLenIn)
   Function RandomLCG_strings(seedIn) RESULT (output)
   Function RandomLCG_R_strings() RESULT (output)
+========================================================================
+Module testMod        testMod.f90
+========================================================================
+  Subroutine testActivity()
+  Subroutine testCalcIsotopeAmount()
+  Subroutine testGaverStehfest()
+  Subroutine testDecayChain()
+  Subroutine testDecayGS()
+  Subroutine testCombinations()
 ========================================================================
 Module units        units.f90
 ========================================================================

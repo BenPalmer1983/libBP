@@ -38,6 +38,8 @@ Module activityFunctionsTypes
     Real(kind=DoubleReal) :: time = 0.0D0
     Real(kind=DoubleReal), Dimension(1:100) :: amount = 0.0D0
     Real(kind=DoubleReal), Dimension(1:100) :: activity = 0.0D0
+    Real(kind=DoubleReal), Dimension(1:100) :: amount_gs = 0.0D0
+    Real(kind=DoubleReal), Dimension(1:100) :: activity_gs = 0.0D0
   End Type
 
 End Module activityFunctionsTypes
@@ -49,10 +51,13 @@ Module activityFunctions
 ! --------------------------------------------------------------!
   Use kinds
   Use constants
+  Use strings
   Use calcFunctions
   Use solveFunctions
   Use laplaceTransforms
   Use activityFunctionsTypes
+  Use printModTypes
+  Use printMod
 ! Force declaration of all variables
   Implicit None
 ! Public variables
@@ -84,19 +89,15 @@ Module activityFunctions
 ! Force declaration of all variables
     Implicit None
 ! Declare variables
-    Integer(kind=StandardInteger) :: i,j,decaySteps,decayStepCounter, noChanges
+! Vars:  in
+    Real(kind=DoubleReal) :: w, t
     Integer(kind=StandardInteger), optional :: calcOptionIn
-    Integer(kind=StandardInteger) :: calcOption
-    Real(kind=DoubleReal) :: halfLifeChange, randNumber, w, t
     Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: decayDataArray
+! Vars:  out
     Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: isotopeChange
-    Real(kind=DoubleReal) :: stableLimit
-! Quadrupole Reals
-    Real(kind=QuadrupoleReal) :: resultQ, resultGS, tQ, tempQ
-    Real(kind=QuadrupoleReal), Dimension(1:20) :: L ! Lambda
-    Real(kind=QuadrupoleReal), Dimension(1:20) :: N ! Starting number of atoms
-    Real(kind=QuadrupoleReal), Dimension(1:20) :: E ! Exp
-    Real(kind=QuadrupoleReal), Dimension(1:19) :: B ! Exp
+    Integer(kind=StandardInteger) :: i,j,decaySteps
+    Integer(kind=StandardInteger) :: calcOption
+    Type(decayChainObj) :: decayChain
 ! -------------------------------------------------
 ! decaySteps really means decay isotopes in chain (steps = decaySteps-1)
 ! -------------------------------------------------
@@ -123,58 +124,10 @@ Module activityFunctions
 ! isotopeChange(i,12)   !GS End
 ! -------------------------------------------------
 ! Optional arguments
-    calcOption = 1  !(1) 1-4 analytic 5+ SG, (2)1+  SG,  (3) 1-4 analytic+GS 5+ SG
+    calcOption = 1  ! 1 = Analytic, 2 = Numeric
     If(Present(calcOptionIn))Then
       calcOption = calcOptionIn
     End If
-! Init variables
-    tQ = t
-    resultQ = 0.0D0
-    resultGS = 0.0D0
-! -------------------------------------------------
-! Alter decay chain
-! -------------------------------------------------
-! - If dTime * decay constant lt 1.0D-14 then assume stable for purposes of simulation
-    decayStepCounter = 0
-    Do i=1,size(decayDataArray,1)
-      stableLimit = (log(2.0D0)/decayDataArray(i,3))*t
-      decayStepCounter = decayStepCounter + 1
-      If(stableLimit.lt.1.0D-14)Then
-        decayDataArray(i,3) = -1    !set as stable
-        Exit
-      End If
-    End Do
-! Resize array
-    decayDataArray = ArraySize2DDouble(decayDataArray,decayStepCounter)
-! -------------------------------------------------
-! Set stable isotope decay constant very small to avoid infinity error
-! -------------------------------------------------
-    Do i=1,size(decayDataArray,1)
-      If(decayDataArray(i,3).eq.(-1))Then
-        decayDataArray(i,3) = 1.0D100
-      End If
-    End Do
-! -------------------------------------------------
-! Break same decay constants by ~1E-3% to avoid singularities
-! -------------------------------------------------
-    noChanges = 0
-    Do While(noChanges.eq.0)
-      noChanges = 1
-      Do i=1,size(decayDataArray,1)
-        Do j=1,size(decayDataArray,1)
-          If(i.ne.j)Then
-            If(decayDataArray(i,3).eq.decayDataArray(j,3))Then
-              Call RANDOM_NUMBER(randNumber)
-              halfLifeChange = 0.1D0+randNumber*0.9D0
-              halfLifeChange = decayDataArray(i,3)*1D-5*halfLifeChange
-              decayDataArray(i,3) = decayDataArray(i,3)+halfLifeChange
-              decayDataArray(j,3) = decayDataArray(j,3)-halfLifeChange
-              noChanges = 0
-            End If
-          End If
-        End Do
-      End Do
-    End Do
 ! set decay steps/isotopes
     decaySteps = size(decayDataArray,1)
 ! allocate isotopeChange array
@@ -194,128 +147,26 @@ Module activityFunctions
       isotopeChange(i,11) = t
       isotopeChange(i,12) = 0.0D0          !default no change
     End Do
-! Store lambda starting atom number data
+! Init decay chain
+    decayChain%time = t
     Do i=1,decaySteps
-      If(decayDataArray(i,3).gt.9.9D99)Then
-        L(i) = 0.0D0
+      decayChain%label(i) = " "
+      decayChain%halfLife(i) = decayDataArray(i,3)
+      decayChain%amountStart(i) = decayDataArray(i,2)
+      If(i.eq.1)Then
+        decayChain%branchFactor(i) = 1.0D0  ! Not used
+        decayChain%productionRate(i) = w
       Else
-        L(i) = lnTwoQ/isotopeChange(i,7)
-      End If
-      N(i) = isotopeChange(i,3)
-      tempQ = -1.0D0*L(i)*tQ
-      E(i) = exp(tempQ)
-      B(i) = decayDataArray(i,4)
-    End Do
-!
-! nP -> nA -> nB -> nC -> nD ...
-!
-! Set starting variables
-    If(decaySteps.ge.1)Then
-! calc nP
-      If(calcOption.eq.1)Then
-        resultQ = (w/L(1))*(1-E(1))+N(1)*E(1)
-        isotopeChange(1,4) = dble(resultQ)
-      End If
-      If(calcOption.eq.2.or.ISNAN(resultQ))Then ! solve numerically
-        resultGS = CalcIsotopeAmountGS(tQ,1,isotopeChange)
-        isotopeChange(1,4) = dble(resultGS)
-      End If
-    End If
-    If(decaySteps.ge.2)Then
-! calc nA
-      If(calcOption.eq.1)Then ! solve analytically
-        resultQ = B(2)*L(1)*w*(1.0D0/(L(1)*L(2))+E(1)/(L(1)*(L(1)-L(2)))-&
-        E(2)/(L(2)*(L(1)-L(2))))+&
-        B(2)*L(1)*N(1)*(E(1)/(L(2)-L(1))+E(2)/(L(1)-L(2)))+&
-        N(2)*E(2)
-        isotopeChange(2,4) = dble(resultQ)
-      End If
-      If(calcOption.eq.2.or.ISNAN(resultQ))Then ! solve numerically
-        resultGS = CalcIsotopeAmountGS(tQ,2,isotopeChange)
-        isotopeChange(2,4) = dble(resultGS)
-      End If
-    End If
-    If(decaySteps.ge.3)Then
-! child B terms
-      If(calcOption.eq.1)Then
-        resultQ = &
-        w*B(2)*B(3)*L(1)*L(2)*&                   ! Term 1
-        (1.0D0/(L(1)*L(2)*L(3))-&
-        E(1)/(L(1)*(L(1)-L(2))*(L(1)-L(3)))+&
-        E(2)/(L(2)*(L(1)-L(2))*(L(2)-L(3)))+&
-        E(3)/(L(3)*(L(1)-L(3))*(L(3)-L(2))))+&
-        B(2)*B(3)*L(1)*L(2)*N(1)*&                ! Term 2
-        (E(1)/((L(1)-L(2))*(L(1)-L(3)))-&
-        E(2)/((L(1)-L(2))*(L(2)-L(3)))-&
-        E(3)/((L(1)-L(3))*(L(3)-L(2))))+&
-        B(3)*L(2)*N(2)*&                          ! Term 3
-        (E(1)/(L(2)-L(1))+E(2)/(L(1)-L(2)))+&
-        N(3)*E(3)
-        isotopeChange(3,4) = dble(resultQ)
-      End If
-      If(calcOption.eq.2.or.ISNAN(resultQ))Then ! solve numerically
-        resultGS = CalcIsotopeAmountGS(tQ,3,isotopeChange)
-        isotopeChange(3,4) = dble(resultGS)
-      End If
-    End If
-    If(decaySteps.ge.4)Then
-! child C terms
-      If(calcOption.eq.1)Then
-        resultQ = &
-        w*B(2)*B(3)*B(4)*L(1)*L(2)*L(3)*&          ! Term 1
-        (&
-        1.0D0/(L(1)*L(2)*L(3)*L(4))&
-        +E(1)/(L(1)*(L(1)-L(2))*(L(1)-L(3))*(L(1)-L(4)))&
-        -E(2)/(L(2)*(L(1)-L(2))*(L(1)-L(3))*(L(2)-L(4)))&
-        -E(3)/(L(3)*(L(1)-L(3))*(L(3)-L(2))*(L(3)-L(4)))&
-        -E(4)/(L(4)*(L(1)-L(4))*(L(4)-L(2))*(L(4)-L(3)))&
-        )+&
-        B(2)*B(3)*L(1)*L(2)*N(1)*&                  ! Term 2
-        (&
-        E(2)/((L(1)-L(2))*(L(2)-L(3))*(L(2)-L(4)))&
-        -E(1)/((L(1)-L(2))*(L(1)-L(3))*(L(1)-L(4)))&
-        +E(3)/((L(1)-L(3))*(L(3)-L(2))*(L(3)-L(4)))&
-        +E(4)/((L(1)-L(4))*(L(4)-L(2))*(L(4)-L(3)))&
-        )+&
-        B(3)*B(4)*L(2)*L(3)*N(2)*&                   ! Term 3
-        (&
-        E(2)/((L(2)-L(3))*(L(2)-L(4)))&
-        -E(3)/((L(2)-L(3))*(L(3)-L(4)))&
-        -E(4)/((L(2)-L(4))*(L(4)-L(3)))&
-        )+&
-        B(4)*L(3)*N(3)*&                   ! Term 4
-        (&
-        E(3)/(L(4)-L(3))&
-        +E(4)/(L(3)-L(4))&
-        )+&
-        E(4)*N(4)
-        isotopeChange(4,4) = dble(resultQ)
-      End If
-      If(calcOption.eq.2.or.ISNAN(resultQ))Then ! solve numerically
-        resultGS = CalcIsotopeAmountGS(tQ,4,isotopeChange)
-        isotopeChange(4,4) = dble(resultGS)
-      End If
-    End If
-! Numeric inverse laplace for remainder
-    If(decaySteps.ge.5)Then
-      Do i=4,decaySteps
-        resultGS = CalcIsotopeAmountGS(tQ,i,isotopeChange)
-        isotopeChange(i,4) = dble(resultGS)
-        isotopeChange(i,12) = dble(resultGS)
-      End Do
-    End If
-! Adjust the isotope values
-    Do i=1,decaySteps
-      If(isotopeChange(i,4).lt.0.0D0)Then
-        isotopeChange(i,4) = 0.0D0
-      End If
-      If(isotopeChange(i,12).lt.0.0D0)Then
-        isotopeChange(i,12) = 0.0D0
+        decayChain%branchFactor(i) = decayDataArray(i,4)
+        decayChain%productionRate(i) = 0.0D0
       End If
     End Do
+! Calculate
+    Call CalcIsotopeChain(decayChain)
 ! Store changes in isotope amounts
     Do i=1,size(isotopeChange,1)
-      isotopeChange(i,2) = isotopeChange(i,4) - isotopeChange(i,3)
+      isotopeChange(i,4) = decayChain%amountEnd(i)
+      isotopeChange(i,2) = decayChain%amountEnd(i) - decayChain%amountStart(i)
     End Do
   End Function CalcIsotopeAmount
 
@@ -888,70 +739,54 @@ Module activityFunctions
       End Do
     End Function CalcIsotopeChainG_Stable
 
-  Function CalcIsotopeChainC(L,kIn,mIn) Result (numerator)
+  Function CalcIsotopeChainC(L,k,m) Result (numerator)
 ! Calculates numerator in isotope activity function
     Implicit None ! Force declaration of all variables
 ! Vars In
     Real(kind=DoubleReal), Dimension(:) :: L
-    Integer(kind=StandardInteger) :: kIn, mIn
+    Integer(kind=StandardInteger) :: k, m
+! Vars Out
     Real(kind=DoubleReal) :: numerator
 ! Vars Private
-    Integer(kind=StandardInteger) :: i, j, k, m, n
-    Integer(kind=StandardInteger), Dimension(1:(mIn-kIn)) :: combinationSet
-    Logical :: loopCombinations
-    Real(kind=DoubleReal) :: tempVal
-! init
-    n = mIn-kIn+1  ! Set size
-    m = n-1
-    If(n.eq.1)Then
-      numerator = 1.0D0
-    Else
-      numerator = 0.0D0
-! Set up starting combination
-      Do i=1,m
-        combinationSet(i) = i
-      End Do
-! Loop through all combinations (order important)
-      loopCombinations = .true.
-      k = 0
-      Do while(loopCombinations)
-        k = k + 1
-        If(k.gt.1)Then
-          j = m
-          Do i=1,m
-            loopCombinations = .false.
-            If(combinationSet(j).lt.(n+1-i))Then
-              combinationSet(j) = combinationSet(j) + 1
-              loopCombinations = .true.
-              Exit
-            End If
-            j = j - 1
-          End Do
-        End If
-        If(loopCombinations)Then
-          tempVal = 1.0D0
-          Do i=1,m
-            tempVal = tempVal * L(combinationSet(i)+kIn-1)
-          End Do
-          numerator = numerator + tempVal
+    Integer(kind=StandardInteger) :: i, j
+    Real(kind=DoubleReal) :: tempMult
+    numerator = 0.0D0
+    Do i=k,m
+      tempMult = 1.0D0
+      Do j=k,m
+        If(j.ne.i)Then
+          tempMult = tempMult * L(j)
         End If
       End Do
-    End If
+      numerator = numerator + tempMult
+    End Do
   End Function CalcIsotopeChainC
 
 ! --------------------------
 ! Calc Activities
 ! --------------------------
 
-  Subroutine CalcActivities(decayChain,activityTime,endTime)
+  Subroutine CalcActivities(decayChain,activityTime,endTime,zeroProductionTimeIn)
 ! calculate activities over time
 ! Vars In
     Type(decayChainObj) :: decayChain
     Type(activityTimeObj), Dimension(:) :: activityTime
     Real(kind=DoubleReal) :: endTime
+    Real(kind=DoubleReal), Optional :: zeroProductionTimeIn
 ! Vars Private
     Integer(kind=StandardInteger) :: i, j, timeSteps
     Real(kind=DoubleReal) :: t
+    Real(kind=DoubleReal) :: zeroProductionTime
+    Logical :: productionOff
+    Real(kind=DoubleReal), Dimension(1:100) :: n0w0
+    Real(kind=DoubleReal), Dimension(1:100) :: n0w0_gs
+! Optional arguments
+    productionOff = .false.
+    zeroProductionTime = 2.0D0*endTime
+    If(Present(zeroProductionTimeIn))Then
+      print *,endTime,zeroProductionTimeIn
+      zeroProductionTime = zeroProductionTimeIn
+    End If
 ! Time steps
     timeSteps = Size(activityTime,1)
 ! Loop through steps and calculate activity
@@ -959,71 +794,159 @@ Module activityFunctions
       t = (1.0D0*(i/(1.0D0*timeSteps)))*endTime
       activityTime(i)%time = t
       decayChain%time = t
+      If((productionOff.eqv..false.).and.(t.ge.zeroProductionTime))Then
+        productionOff = .true.
+! Store post irradiation/source starting amounts
+        Call CalcIsotopeChain(decayChain)
+        Do j=1,decayChain%isotopes
+          n0w0(j) = decayChain%amountEnd(j)
+        End Do
+! Store post irradiation/source starting amounts - gs
+        Call CalcIsotopeChainGS(decayChain)
+        Do j=1,decayChain%isotopes
+          n0w0_gs(j) = decayChain%amountEnd(j)
+          If(n0w0_gs(j).lt.0.0D0)Then
+            n0w0_gs(j) = 0.0D0
+          End If
+        End Do
+! Turn off source
+        Do j=1,decayChain%isotopes
+          decayChain%productionRate(j) = 0.0D0
+        End Do
+      End If
+! Analytic calculation
+      If(productionOff)Then
+        decayChain%time = t-zeroProductionTime
+        Do j=1,decayChain%isotopes
+          decayChain%amountStart(j) = n0w0(j)
+        End Do
+      End If
       Call CalcIsotopeChain(decayChain)
       Do j=1,decayChain%isotopes
         activityTime(i)%amount(j) = decayChain%amountEnd(j)
         activityTime(i)%activity(j) = decayChain%activity(j)
       End Do
+! Numeric calculation
+      If(productionOff)Then
+        decayChain%time = t-zeroProductionTime
+        Do j=1,decayChain%isotopes
+          decayChain%amountStart(j) = n0w0_gs(j)
+        End Do
+      End If
+      Call CalcIsotopeChainGS(decayChain)
+      If(t.eq.zeroProductionTime)Then
+        Do j=1,decayChain%isotopes
+          activityTime(i)%amount_gs(j) = n0w0_gs(j)
+          activityTime(i)%activity_gs(j) = n0w0_gs(j)*decayChain%decayConstant(j)
+        End Do
+      Else
+        Do j=1,decayChain%isotopes
+          activityTime(i)%amount_gs(j) = decayChain%amountEnd(j)
+          activityTime(i)%activity_gs(j) = decayChain%activity(j)
+        End Do
+      End If
     End Do
   End Subroutine CalcActivities
 
 
 
-  Subroutine CalcActivitiesPrint(decayChain,activityTime)
+  Subroutine CalcActivitiesPrint(decayChain,activityTime,tableIn)
 ! calculate activities over time
 ! Vars In
     Type(decayChainObj) :: decayChain
     Type(activityTimeObj), Dimension(:) :: activityTime
+    Logical, Optional :: tableIn
 ! Vars Private
-    Integer(kind=StandardInteger) :: i, j, k, m, n, timeSteps, stringLen
-    Character(Len=14) :: tempLine
-    Character(Len=2048) :: printLine, headerLine, breakLine
+    Integer(kind=StandardInteger) :: i, j, timeSteps
+    Character(Len=16) :: tempLine
+    Character(Len=1024) :: headerLine, dataLine
+    Type(tableObj) :: activityTable
+    Logical :: table
+! Optional
+    table = .true.
+    If(Present(tableIn))Then
+      table = tableIn
+    End If
 ! Time steps
     timeSteps = Size(activityTime,1)
-    stringLen = 16+16*decayChain%isotopes
-! Loop through steps and calculate activity
-    Do i=1,timeSteps
-      Write(tempLine,"(E14.7)") activityTime(i)%time
-      tempLine = Trim(Adjustl(tempLine))
-      Call CalcIsotopeChain(decayChain)
-      printLine(1:1) = " "
-      printLine(2:15) = tempLine(1:14)
-      printLine(16:16) = " "
-      If(i.eq.1)Then
-        headerLine = "    Time/s    "
-        breakLine =  "=============="
-      End If
+    If(table)Then
+! Init table
+      Call printTableInit(activityTable)
+! Table settings
+      activityTable%colAutoWidth = .false.
+      activityTable%printHeaderRow = .true.
+      activityTable%printHeaderColumn = .true.
+! Headers
+      activityTable%headerRowColumn = "Time/s"
       Do j=1,decayChain%isotopes
-        Write(tempLine,"(E14.7)") activityTime(i)%amount(j)
-        tempLine = Trim(Adjustl(tempLine))
-        m = 16*j
-        printLine(m+1:m+1) = " "
-        If(i.eq.1)Then
-          headerLine(m+1:m+1) = " "
-          breakLine(m+1:m+1) = "="
-        End If
-        Do k=1,14
-          n = k + m + 1
-          printLine(n:n) = tempLine(k:k)
-          If(i.eq.1)Then
-            headerLine(n:n) = decayChain%label(j)(k:k)
-            breakLine(n:n) = "="
-          End If
-        End Do
-        printLine(m+16:m+16) = " "
-        If(i.eq.1)Then
-          headerLine(m+16:m+16) = " "
-          breakLine(m+16:m+16) = "="
-        End If
+        activityTable%headerRow(j) = decayChain%label(j)
       End Do
-      If(i.eq.1)Then
-        print *,breakLine(1:stringLen)
-        print *,headerLine(1:stringLen)
-        print *,breakLine(1:stringLen)
-      End If
-      print *,printLine(1:stringLen)
-    End Do
+      Do j=1,decayChain%isotopes
+        tempLine = trim(decayChain%label(j))//" (GS)"
+        activityTable%headerRow(decayChain%isotopes+j) = tempLine
+      End Do
+! Loop through steps and calculate activity
+      Do i=1,timeSteps
+        Write(tempLine,"(E14.7)") activityTime(i)%time
+        activityTable%headerColumn(i) = tempLine
+        Do j=1,decayChain%isotopes
+          Write(tempLine,"(E14.7)") activityTime(i)%amount(j)
+          activityTable%tableData(i,j) = tempLine
+          Write(tempLine,"(E14.7)") activityTime(i)%amount_gs(j)
+          activityTable%tableData(i,j+decayChain%isotopes) = tempLine
+        End Do
+      End Do
+      activityTable%columns = 2*decayChain%isotopes
+      activityTable%rows = timeSteps
+      Call printTableMake(activityTable)
+    Else
+      headerLine = BlankString(headerLine)
+      headerLine = "Time/s"
+      Do j=1,decayChain%isotopes
+        tempLine = trim(decayChain%label(j))
+        headerLine = trim(headerLine)//","//trim(tempLine)
+      End Do
+      Do j=1,decayChain%isotopes
+        tempLine = trim(decayChain%label(j))//" (GS)"
+        headerLine = trim(headerLine)//","//trim(tempLine)
+      End Do
+      print *,trim(headerLine)
+! Loop through steps and calculate activity
+      Do i=1,timeSteps
+        dataLine = BlankString(dataLine)
+        Write(tempLine,"(E14.7)") activityTime(i)%time
+        dataLine = trim(tempLine)
+        Do j=1,decayChain%isotopes
+          Write(tempLine,"(E14.7)") activityTime(i)%amount(j)
+          activityTable%tableData(i,j) = tempLine
+          dataLine = trim(dataLine)//","//trim(tempLine)
+        End Do
+        Do j=1,decayChain%isotopes
+          Write(tempLine,"(E14.7)") activityTime(i)%amount_gs(j)
+          activityTable%tableData(i,j) = tempLine
+          dataLine = trim(dataLine)//","//trim(tempLine)
+        End Do
+        print *,trim(dataLine)
+      End Do
+
+
+    End If
   End Subroutine CalcActivitiesPrint
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

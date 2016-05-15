@@ -136,8 +136,8 @@ Module testMod
 !   None
 ! Vars: Private
     Type(decayChainObj) :: decayChain
-    Type(activityTimeObj), Dimension(1:50) :: activityTime
-    Real(kind=DoubleReal) :: endTime
+    Type(activityTimeObj), Dimension(1:100) :: activityTime
+    Real(kind=DoubleReal) :: endTime, zeroProductionTime
 !-------------------------------------------
     Print *,"Testing decay chain"
 ! Polonium-218 decay chain
@@ -145,64 +145,69 @@ Module testMod
     decayChain%time = 60.0D0
 ! Parent
     decayChain%label(1) = "Po-218"
-    decayChain%productionRate(1) = 5.0D0
-    !decayChain%productionRate(1) = 0.0D0
+    decayChain%productionRate(1) = 5.0D4
     decayChain%branchFactor(1) = 1.0D0  ! Not used
-    decayChain%halfLife(1) = 30.0D0
-    decayChain%amountStart(1) = 1.000D6
+    decayChain%halfLife(1) = 185.88D0
+    decayChain%amountStart(1) = 1.0D6
 ! Daughter 1
     decayChain%label(2) = "Pb-214"
     decayChain%productionRate(2) = 0.0D0
     decayChain%branchFactor(2) = 0.99981D0   ! bf from 1 to 2
-    !decayChain%branchFactor(2) = 1.0D0
-    decayChain%halfLife(2) = 122.0D0
-    !decayChain%halfLife(2) = -1.0D0
-    decayChain%amountStart(2) = 166654.0D0
+    decayChain%halfLife(2) = 1608.0D0
+    decayChain%amountStart(2) = 1.0D5
 ! Daughter 2
     decayChain%label(3) = "Bi-214"
     decayChain%productionRate(3) = 1.0D4
     decayChain%branchFactor(3) = 1.0D0  ! bf from 2 to 3
-    decayChain%branchFactor(3) = 0.5D0  ! bf from 2 to 3
-    decayChain%halfLife(3) = 1196.0D0
-    !decayChain%halfLife(3) = -1.0D0
+    decayChain%halfLife(3) = 1194.0D0
     decayChain%amountStart(3) = 500.0D0
 ! Daughter 3
     decayChain%label(4) = "Po-214"
     decayChain%productionRate(4) = 0.0D0
     decayChain%branchFactor(4) = 0.99979D0  ! bf from 3 to 4
-    !decayChain%branchFactor(4) = 1.0D0
-    decayChain%halfLife(4) = 1648.3D0
-    !decayChain%halfLife(4) = -1.0D0
+    decayChain%halfLife(4) = 0.0001637D0
     decayChain%amountStart(4) = 0.0D0
-! Daughter 3
-    decayChain%label(5) = "Po-214"
-    decayChain%productionRate(5) = 0.0D0
-    decayChain%branchFactor(5) = 0.99979D0  ! bf from 3 to 4
-    !decayChain%branchFactor(4) = 1.0D0
-    decayChain%halfLife(5) = 1648.3D0
-    !decayChain%halfLife(4) = -1.0D0
-    decayChain%amountStart(5) = 0.0D0
 ! Daughter 4
-    decayChain%label(6) = "Pb-210"
+    decayChain%label(5) = "Pb-210"
+    decayChain%productionRate(5) = 0.0D0
+    decayChain%branchFactor(5) = 1.0D0  ! bf from 3 to 4
+    decayChain%halfLife(5) = 6.9930D8
+    decayChain%amountStart(5) = 0.0D0
+! Daughter 5
+    decayChain%label(6) = "Bi-210"
     decayChain%productionRate(6) = 0.0D0
-    decayChain%branchFactor(6) = 1.000D0  ! bf from 4 to 5
-    decayChain%halfLife(6) = -1.0D0
-    decayChain%amountStart(6) = 2000.0D0
+    decayChain%branchFactor(6) = 1.0D0  ! bf from 4 to 5
+    decayChain%halfLife(6) = 1.600665D-6
+    decayChain%amountStart(6) = 0.0D0
+! Daughter 6
+    decayChain%label(7) = "Tl-206"
+    decayChain%productionRate(7) = 0.0D0
+    decayChain%branchFactor(7) = 1.0D0  ! bf from 5 to 6
+    decayChain%halfLife(7) = 2.5212D2
+    decayChain%amountStart(7) = 0.0D0
+! Daughter 7
+    decayChain%label(8) = "Pb-206"
+    decayChain%productionRate(8) = 0.0D0
+    decayChain%branchFactor(8) = 1.0D0  ! bf from 6 to 7
+    decayChain%halfLife(8) = -1.0D0
+    decayChain%amountStart(8) = 0.0D0
 
 
 ! Analytic
-    Call CalcIsotopeChain(decayChain)
-    print *,"Analytic"
-    Call decayChainPrint(decayChain)
+    !Call CalcIsotopeChain(decayChain)
+    !print *,"Analytic"
+    !Call decayChainPrint(decayChain)
 ! Numeric
-    Call CalcIsotopeChainGS(decayChain)
-    print *,"Numeric"
-    Call decayChainPrint(decayChain)
+    !Call CalcIsotopeChainGS(decayChain)
+    !print *,"Numeric"
+    !Call decayChainPrint(decayChain)
 
 
-    endTime = 5000.0D0
-    Call CalcActivities(decayChain,activityTime,endTime)
-    Call CalcActivitiesPrint(decayChain,activityTime)
+    endTime = 10000.0D0
+    zeroProductionTime = 1000.0D0
+!   print *,endTime,zeroProductionTime
+    Call CalcActivities(decayChain,activityTime,endTime,zeroProductionTime)
+    Call CalcActivitiesPrint(decayChain,activityTime,.false.)
 
   End Subroutine testDecayChain
 
