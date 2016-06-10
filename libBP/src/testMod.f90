@@ -12,6 +12,12 @@ Module testMod
   Use activityFunctions
   Use basicMaths
   Use laplaceTransforms
+  Use geomTypes
+  Use geom
+  Use potentialsTypes
+  Use potentials
+  Use staticCalcsTypes
+  Use staticCalcs
 ! Force declaration of all variables
   Implicit None
 ! Public variables
@@ -23,6 +29,8 @@ Module testMod
   Public :: testCalcIsotopeAmount
   Public :: testGaverStehfest
   Public :: testDecayChain
+  Public :: testNeighbourList
+  Public :: testStaticCalc
   Public :: testCombinations
 
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -93,19 +101,16 @@ Module testMod
     decayDataArray(5,5) = 1.0D0
     decayDataArray(5,6) = 1.0D0
     Allocate(isotopeChange(1:5,1:12))
-
     print *,""
     isotopeChange = CalcIsotopeAmount(w,decayDataArray,t,1)
     Do n = 1,5
       Print *,n,isotopeChange(n,3),isotopeChange(n,4)
     End Do
-
     print *,""
     isotopeChange = CalcIsotopeAmount(w,decayDataArray,t,2)
     Do n = 1,5
       Print *,n,isotopeChange(n,3),isotopeChange(n,4)
     End Do
-
   End Subroutine testCalcIsotopeAmount
 
 
@@ -191,18 +196,7 @@ Module testMod
     decayChain%branchFactor(8) = 1.0D0  ! bf from 6 to 7
     decayChain%halfLife(8) = -1.0D0
     decayChain%amountStart(8) = 0.0D0
-
-
-! Analytic
-    !Call CalcIsotopeChain(decayChain)
-    !print *,"Analytic"
-    !Call decayChainPrint(decayChain)
-! Numeric
-    !Call CalcIsotopeChainGS(decayChain)
-    !print *,"Numeric"
-    !Call decayChainPrint(decayChain)
-
-
+! Calculate
     endTime = 10000.0D0
     zeroProductionTime = 1000.0D0
 !   print *,endTime,zeroProductionTime
@@ -213,19 +207,82 @@ Module testMod
 
 
 
-  Subroutine testDecayGS()
+  Subroutine testNeighbourList()
 ! Uses inverse laplace transform to calculate isotope amounts at time t (after time = 0)
 ! t time in seconds after t=0
 ! w production rate of parent isotope
 ! isotope chain data
     Implicit None ! Force declaration of all variables
 ! Vars Private
+    Type(coordsUnitType) :: coordsUnit
+    Type(coordsType) :: coords
+    Type(nlType) :: nl
+    Integer(kind=StandardInteger) :: i
+! Start test
+    print *,"Neighbour List Testing"
+    print *,"==========================================================="
+    Call initUnitCoords(coordsUnit)
+    Call initCoords(coords)
+    coordsUnit%aLat = 4.04D0
+    coordsUnit%xCopy = 4
+    coordsUnit%yCopy = 4
+    coordsUnit%zCopy = 4
+    Call standardCoords("FCC", coordsUnit)
+    Call expandUnitCoords(coordsUnit, coords)
+    Do i=1,coords%points
+      !print *,coords%label(i),coords%coords(i,1),coords%coords(i,2),coords%coords(i,3),coords%fracCoords(i,1)
+    End Do
+    print *,coords%points
+    Call makeNL(nl, coords, 6.5D0)
+  End Subroutine testNeighbourList
 
 
 
+  Subroutine testStaticCalc()
+! Uses inverse laplace transform to calculate isotope amounts at time t (after time = 0)
+! t time in seconds after t=0
+! w production rate of parent isotope
+! isotope chain data
+    Implicit None ! Force declaration of all variables
+! Vars Private
+    Type(coordsUnitType) :: coordsUnit
+    Type(coordsType) :: coords
+    Type(nlType) :: nl
+    Type(potentialType) :: potential
+! Start test
+    print *,"Static Calculation Testing"
+    print *,"==========================================================="
+! Set up coords
+    Call initUnitCoords(coordsUnit)
+    Call initCoords(coords)
+    coordsUnit%aLat = 4.04D0
+    coordsUnit%xCopy = 4
+    coordsUnit%yCopy = 4
+    coordsUnit%zCopy = 4
+    Call standardCoords("FCC", coordsUnit)
+    Call expandUnitCoords(coordsUnit, coords)
+! Build neighbour list
+    Print *,"Build neighbour list"
+    Call makeNL(nl, coords, 6.5D0)
+! Init potential
+    Print *,"Init potential"
+    Call initPotential(potential)
+! Load potential
+    Print *,"Load potential"
+    Call loadPotential("test.pot", potential)
+! Assign atom IDs
+    Print *,"Assign IDs"
+    Call atomLabelIDs(potential, coords)
+! Print summary
+    Call printPotentialSummary(potential)
+    !print *,potential%IDcount,"  ",coords%IDcount
+! Print potential
+    !Call printPotentialSummary(potential)
 
 
-  End Subroutine testDecayGS
+  End Subroutine testStaticCalc
+
+
 
 
 

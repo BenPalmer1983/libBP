@@ -22,6 +22,7 @@ Module general
   Public :: correctFilePath
   Public :: readFile
   Public :: readCSV
+  Public :: readFieldsCharacter
   Public :: extractArrayColumnDP
   Public :: extractArrayColumnInt
   Public :: swapArrayRows1D
@@ -174,7 +175,7 @@ Module general
           commentsFlag = .true.
         End If
         If(commentsFlag)Then
-          fileRow(j:j) = " "
+          fileRow(j:j) = char(0)
         End If
       End Do
 ! remove blank lines
@@ -187,7 +188,6 @@ Module general
 ! Close file
     close(9999)
   End Subroutine readFile
-
 
   Subroutine readCSV(inputFilePath, fieldSeparator, csvArray, rows, columns)
 ! Subroutine to read csv file into an array
@@ -266,6 +266,104 @@ Module general
     End Do
     rows = n
   End Subroutine readCSV
+
+  Subroutine readFieldsCharacter(inputRow,outputArray,fieldCount)
+! Subroutine to read input row into an array [CHARACTER]
+    Implicit None ! Force declaration of all variables
+! Vars:  In/Out
+    Character(*) :: inputRow
+    Character(*), Dimension(:) :: outputArray
+    Integer(kind=StandardInteger) :: fieldCount
+! Vars:  Private
+    Integer(kind=StandardInteger) :: i, j, n, charNum, charNum_Temp, endChar
+    Character(Len(inputRow)) :: inputRowTemp
+    Character(Len(outputArray)) :: fieldTemp
+    Logical :: inQuotes
+! Init
+    outputArray = WipeStringArray(outputArray)
+    inputRowTemp = WipeString(inputRowTemp)
+    inQuotes = .false.
+! Filter out multiple spaces
+    j = 0
+    Do i=1,Len(inputRow)
+      charNum = iChar(inputRow(i:i))
+      If(charNum.eq.34)Then
+        If(inQuotes)Then
+          inQuotes = .false.
+        Else
+          inQuotes = .true.
+        End If
+      End If
+      If(j.eq.0)Then
+        j = 1
+        inputRowTemp(j:j) = inputRow(i:i)
+      Else
+        If(inQuotes)Then
+          j = j + 1
+          inputRowTemp(j:j) = inputRow(i:i)
+        Else
+          charNum_Temp = iChar(inputRowTemp(j:j))
+          If(charNum_Temp.eq.32)Then
+            If(charNum.ne.32)Then
+              j = j + 1
+              inputRowTemp(j:j) = inputRow(i:i)
+            End If
+          Else
+            j = j + 1
+            inputRowTemp(j:j) = inputRow(i:i)
+          End If
+        End If
+      End If
+    End Do
+    endChar = j
+! Remove trailing space
+    charNum = iChar(inputRowTemp(endChar:endChar))
+    If(charNum.eq.32)Then
+      endChar = endChar - 1
+    End If
+    Do i=(endChar+1),Len(inputRow)
+      inputRowTemp(i:i) = char(0)
+    End Do
+! Store in array
+    inQuotes = .false.
+    j = 0
+    n = 0
+    fieldTemp = WipeString(fieldTemp)
+    Do i=1,endChar
+! Check if in quotes
+      charNum = iChar(inputRowTemp(i:i))
+      If(charNum.eq.34)Then
+        If(inQuotes)Then
+          inQuotes = .false.
+        Else
+          inQuotes = .true.
+        End If
+      End If
+! Store
+      If(inQuotes)Then
+        j = j + 1
+        fieldTemp(j:j) = inputRowTemp(i:i)
+      Else
+        If(charNum.eq.32)Then
+          n = n + 1
+          outputArray(n) = fieldTemp
+          fieldTemp = WipeString(fieldTemp)
+          j = 0
+        Else
+          j = j + 1
+          fieldTemp(j:j) = inputRowTemp(i:i)
+        End If
+      End If
+    End Do
+! Store final
+    n = n + 1
+    outputArray(n) = fieldTemp
+    fieldCount = n
+! ----------------------
+  End Subroutine readFieldsCharacter
+
+
+
 
 ! ARRAYS
 
@@ -588,7 +686,7 @@ Module general
   End Subroutine strToDPArr
 
   Subroutine strToStrArr(stringIn,strArr)
-! Take space separated integers and convert to array
+! Take space separated string and convert to array
     Implicit None   ! Force declaration of all variables
 ! Declare private variables
     Integer(kind=StandardInteger) :: i, j, k

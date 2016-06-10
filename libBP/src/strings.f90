@@ -22,6 +22,7 @@ Module strings
 ! ---- Functions
   Public :: StrToUpper
   Public :: StrToLower
+  Public :: StrInStr
   Public :: StrReplace
   Public :: NumericOnly
   Public :: SingleSpaces
@@ -30,6 +31,8 @@ Module strings
   Public :: TrimSpaces
   Public :: BlankString
   Public :: BlankStringArray
+  Public :: WipeString
+  Public :: WipeStringArray
   Public :: Spaces
   Public :: SpacesRight
   Public :: RemoveComments
@@ -44,6 +47,7 @@ Module strings
   Public :: TempFileName
   Public :: CleanString
   Public :: TimeToHuman
+  Public :: IfStringEmpty
 ! ---- Subroutines
   Public :: explode
   Public :: randCharacter
@@ -53,6 +57,9 @@ Module strings
   Interface BlankStringArray
     Module Procedure BlankString1DArray, BlankString2DArray
   End Interface BlankStringArray
+  Interface WipeStringArray
+    Module Procedure WipeString1DArray, BlankString2DArray
+  End Interface WipeStringArray
 !---------------------------------------------------------------------------------------------------------------------------------------
   Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -101,6 +108,46 @@ Module strings
       output(i:i) = char(n)
     End Do
   End Function StrToLower
+!---------------------------------------------------------------------------------------------------------------------------------------
+    Function StrInStr (haystack, needle, caseSensitiveIn) RESULT (inString)
+! Replace string
+      Implicit None  !Force declaration of all variables
+! Vars:  In
+      Character(*) :: haystack
+      Character(*) :: needle
+      Logical, Optional :: caseSensitiveIn
+! Vars:  Out
+      Logical :: inString
+! Vars:  Private
+      Integer(kind=StandardInteger) :: i
+      Logical :: caseSensitive
+      Character(Len(haystack)) :: haystackWorking
+      Character(Len(needle)) :: needleWorking
+! Init vars
+      inString = .false.
+      caseSensitive = .false.
+! Optional
+      If(Present(caseSensitiveIn))Then
+        caseSensitive = caseSensitiveIn
+      End If
+! Both to uppercase
+      If(caseSensitive)Then
+        haystackWorking = haystack
+        needleWorking = needle
+      Else
+        haystackWorking = StrToUpper(haystack)
+        needleWorking = StrToUpper(needle)
+      End If
+! Loop through characters
+      Do i=1,Len(haystackWorking)-len(needleWorking)+1
+        If(haystackWorking(i:(i+len(needleWorking)-1)).eq.needleWorking)Then
+          inString = .true.
+        End If
+        If(inString)Then
+          Exit
+        End If
+      End Do
+    End Function StrInStr
 !---------------------------------------------------------------------------------------------------------------------------------------
   Function StrReplace (input, needle, replace) RESULT (output)
 ! Replace string
@@ -286,27 +333,27 @@ Module strings
     End Do
   End Function TrimSpaces
 
-    Function BlankString (input) RESULT (output)
-      Character(*), INTENT(IN) :: input
-      Character(Len(input)) :: output
-      Integer(kind=StandardInteger) :: i
-      Do i=1,Len(input)
-        output(i:i) = " "
-      End Do
-    End Function BlankString
+  Function BlankString (input) RESULT (output)
+    Character(*), INTENT(IN) :: input
+    Character(Len(input)) :: output
+    Integer(kind=StandardInteger) :: i
+    Do i=1,Len(input)
+      output(i:i) = " "
+    End Do
+  End Function BlankString
 
-    Function BlankString1DArray (input) RESULT (output)
-      Character(*), Dimension(:), INTENT(IN) :: input
-      Character(Len(input)) :: line
-      Character(Len(input)), Dimension(1:size(input,1)) :: output
-      Integer(kind=StandardInteger) :: i
-      Do i=1,Len(input)
-        line(i:i) = " "
-      End Do
-      Do i=1,size(input,1)
-        output(i) = line
-      End Do
-    End Function BlankString1DArray
+  Function BlankString1DArray (input) RESULT (output)
+    Character(*), Dimension(:), INTENT(IN) :: input
+    Character(Len(input)) :: line
+    Character(Len(input)), Dimension(1:size(input,1)) :: output
+    Integer(kind=StandardInteger) :: i
+    Do i=1,Len(input)
+      line(i:i) = " "
+    End Do
+    Do i=1,size(input,1)
+      output(i) = line
+    End Do
+  End Function BlankString1DArray
 
   Function BlankString2DArray (input) RESULT (output)
     Character(*), Dimension(:,:), INTENT(IN) :: input
@@ -322,6 +369,47 @@ Module strings
       End Do
     End Do
   End Function BlankString2DArray
+
+  Function WipeString (input) RESULT (output)
+    Character(*), INTENT(IN) :: input
+    Character(Len(input)) :: output
+    Integer(kind=StandardInteger) :: i
+    Do i=1,Len(input)
+      output(i:i) = char(0)
+    End Do
+  End Function WipeString
+
+  Function WipeString1DArray (input) RESULT (output)
+    Character(*), Dimension(:), INTENT(IN) :: input
+    Character(Len(input)) :: line
+    Character(Len(input)), Dimension(1:size(input,1)) :: output
+    Integer(kind=StandardInteger) :: i
+    Do i=1,Len(input)
+      line(i:i) = char(0)
+    End Do
+    Do i=1,size(input,1)
+      output(i) = line
+    End Do
+  End Function WipeString1DArray
+
+  Function WipeString2DArray (input) RESULT (output)
+    Character(*), Dimension(:,:), INTENT(IN) :: input
+    Character(Len(input)) :: line
+    Character(Len(input)), Dimension(1:size(input,1),1:size(input,2)) :: output
+    Integer(kind=StandardInteger) :: i, j
+    Do i=1,Len(input)
+      line(i:i) = char(0)
+    End Do
+    Do i=1,size(input,1)
+      Do j=1,size(input,2)
+        output(i,j) = line
+      End Do
+    End Do
+  End Function WipeString2DArray
+
+
+
+
 
   Function Spaces (length) RESULT (output)
     Integer(kind=StandardInteger), INTENT(IN) :: length
@@ -459,15 +547,37 @@ Module strings
     Read(input,*) output
   End Function StrToInt
 
-  Function StrToDp (input) RESULT (output)
+  Function StrToDp (input) RESULT (outputDouble)
 ! Apply style to last dataset added (unless otherwise specified)
     Implicit None  ! Force declaration of all variables
-  ! In:      Declare variables
+! Vars:  In
     Character(*) :: input
-  ! Out:     Declare variables
-    Real(kind=DoubleReal) :: output
-    output = 0.0D0
-    Read(input,*) output
+! Vars:  Out
+    Real(kind=DoubleReal) :: outputDouble
+! Vars:  Private
+    Character(Len(input)+2) :: inputTemp
+    Integer(kind=StandardInteger) :: i
+! Check format
+    input = Trim(adjustl(input))
+    outputDouble = 0.0D0
+    input = StrReplace(input, "E", "D")
+    If(StrInStr(input,"D"))Then
+      Read(input,*) outputDouble
+    Else
+      inputTemp = BlankString(inputTemp)
+      Do i=1,Len(input)
+        If(input(i:i).eq." ")Then
+          Exit
+        End If
+        If(iChar(input(i:i)).eq.0)Then
+          Exit
+        End If
+        inputTemp(i:i) = input(i:i)
+      End Do
+      inputTemp(i:i) = "D"
+      inputTemp(i+1:i+1) = "0"
+      Read(inputTemp,*) outputDouble
+    End If
   End Function StrToDp
 
   Function StrToBool (inputIn) RESULT (output)
@@ -632,6 +742,34 @@ Module strings
     stringOut = trim(stringOut)//" "//adjustl(trim(DpToStr(seconds,"(F10.3)")))//" s "
     stringOut = trim(adjustl(stringOut))
   End Function TimeToHuman
+
+
+
+  Function IfStringEmpty(stringIn) Result (result)
+! Check for an empty string
+! Spaces (iChar = 32) and iChar = 0 are empty
+    Implicit None  ! Force declaration of all variables
+! In:      Declare variables
+    Character(*) :: stringIn
+! Out:     Declare variables
+    Logical :: result
+    Integer(kind=StandardInteger) :: i, charAscii
+! Assume empty
+    result = .true.
+! Test string
+    Do i=1,Len(stringIn)
+      charAscii = iChar(stringIn(i:i))
+      If(charAscii.eq.0)Then
+        Exit
+      End If
+      If(charAscii.eq.32)Then
+        Exit
+      End If
+      result = .false.
+      Exit
+    End Do
+
+  End Function IfStringEmpty
 
 
 

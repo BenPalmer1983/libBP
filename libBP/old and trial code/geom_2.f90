@@ -15,27 +15,24 @@ Module geomTypes
   Use kinds
 
   Type :: coordsUnitType
-    Integer(kind=StandardInteger) :: points = 0
     Integer(kind=StandardInteger) :: xCopy = 1
     Integer(kind=StandardInteger) :: yCopy = 1
     Integer(kind=StandardInteger) :: zCopy = 1
     Real(kind=DoubleReal) :: aLat = 1.0D0
-    Real(kind=DoubleReal), Dimension(1:3,1:3) :: unitCell
     Character(Len=16), Dimension(1:128) :: label           ! Unit labels
     Integer(kind=StandardInteger), Dimension(1:128) :: labelID
     Real(kind=DoubleReal), Dimension(1:128,1:3) :: unitCoords   ! Unit coords - fractional
-    Real(kind=DoubleReal), Dimension(1:128,1:3) :: unitForces   ! Unit coords - fractional
+    Real(kind=DoubleReal), Dimension(1:3,1:3) :: unitCell
+    Integer(kind=StandardInteger) :: points = 0
   End Type coordsUnitType
 
   Type :: coordsType
-    Integer(kind=StandardInteger) :: points = 0
     Real(kind=DoubleReal) :: aLat = 0.0D0
     Character(Len=16), Dimension(1:1024) :: label           ! Unit labels
     Integer(kind=StandardInteger), Dimension(1:1024) :: labelID
     Real(kind=DoubleReal), Dimension(1:1024,1:3) :: fracCoords   ! coords - fractional
     Real(kind=DoubleReal), Dimension(1:1024,1:3) :: coords   ! coords - fractional
-    Real(kind=DoubleReal), Dimension(1:1024,1:3) :: forces   ! coords - fractional
-    Integer(kind=StandardInteger) :: IDcount
+    Integer(kind=StandardInteger) :: points = 0
   End Type coordsType
 
   Type :: nlType
@@ -87,7 +84,6 @@ Module geom
   Public :: initCoords
   Public :: standardCoords
   Public :: expandUnitCoords
-  Public :: zeroForces
   Public :: makeNL
 
 
@@ -128,7 +124,6 @@ Module geom
       coords%labelID(i) = 0
       Do j=1,3
         coords%unitCoords(i,j) = 0.0D0
-        coords%unitForces(i,j) = 0.0D0
       End Do
     End Do
     Do i=1,3
@@ -157,7 +152,6 @@ Module geom
       Do j=1,3
         coords%fracCoords(i,j) = 0.0D0
         coords%coords(i,j) = 0.0D0
-        coords%forces(i,j) = 0.0D0
       End Do
     End Do
     coords%points = 0
@@ -227,10 +221,6 @@ Module geom
             coords%coords(m,1) = xCoords(1)
             coords%coords(m,2) = xCoords(2)
             coords%coords(m,3) = xCoords(3)
-! Forces
-            coords%fracCoords(m,1) = coordsUnit%unitForces(n,1)
-            coords%fracCoords(m,2) = coordsUnit%unitForces(n,2)
-            coords%fracCoords(m,3) = coordsUnit%unitForces(n,3)
           End Do
         End Do
       End Do
@@ -240,27 +230,12 @@ Module geom
 ! Initialise data type
   End Subroutine expandUnitCoords
 
-  Subroutine zeroForces(coords)
-! Init the unit coords data type
-    Implicit None   ! Force declaration of all variables
-! Vars:  In
-    Type(coordsType) :: coords
-! Zero
-    coords%forces = 0.0D0
-  End Subroutine zeroForces
-
-
-
 ! ------------------------------------------------------------
 !               Neighbour List
 ! ------------------------------------------------------------
 
   Subroutine makeNL(nl, coords, rVerlet)
 ! Make neighbour list for atoms
-! The input coords and alat must be large enough so the same atom does not interact
-! with a copy in a periodic cell surrounding the original
-! e.g. if the rVerlet cutoff is 5, the alat must be greater than 5
-!
     Implicit None   ! Force declaration of all variables
 ! In/Out
     Type(nlType) :: nl
@@ -276,7 +251,9 @@ Module geom
     Integer(kind=StandardInteger) :: coordLength, scW, scCount, scKey, maxAtomsPerSC
     Integer(kind=StandardInteger) :: scKeyA, scKeyB
     Real(kind=DoubleReal) :: rVerletSQ, scAlat
-    Integer(kind=StandardInteger) :: nlKey
+    Integer(kind=StandardInteger), &
+    Dimension(1:100000) :: nlUniqueKeyArr
+    Integer(kind=StandardInteger) :: nlKey, uKey
     Integer(kind=StandardInteger) :: xKey, yKey, zKey
     Real(kind=DoubleReal) :: xA, xB, yA, yB, zA, zB
     Real(kind=DoubleReal) :: xD, yD, zD, rD
@@ -297,6 +274,7 @@ Module geom
     nl%totalRD = 0.0D0
     nl%totalRDSq = 0.0D0
     nl%rVerlet = rVerlet
+    nlUniqueKeyArr = 0
     nlKey = 0
 ! calculate sub cell parameters
     scW = floor(aLat/(1.0D0*rVerlet))
@@ -307,6 +285,7 @@ Module geom
     scAlat = aLat/(1.0D0*scW)
     maxAtomsPerSC = 5*ceiling(coordLength/(1.0D0*scCount))
     nl%scCount = scCount
+    print *,aLat,rVerlet,scW,scCount,scAlat,maxAtomsPerSC
 ! Allocate arrays
     Allocate(scAtomCount(1:scCount))
     Allocate(scKeyArr(1:scCount,1:3))
@@ -393,59 +372,71 @@ Module geom
 ! loop through A atoms
             Do atomA =1,scAtomCount(scKeyA)
 ! loop through B atoms
-              Do atomB =atomA+1,scAtomCount(scKeyB)
-                atomA_ID = scCoordsI(scKeyA,atomA,1)
-                atomB_ID = scCoordsI(scKeyB,atomB,1)
-                xA = scCoordsR(scKeyA,atomA,1)
-                xB = scCoordsR(scKeyB,atomB,1)+xShift
-                xD = xA-xB
-                xDsq = xd**2
-                If(xDsq.le.rVerletSQ)Then
-                  yA = scCoordsR(scKeyA,atomA,2)
-                  yB = scCoordsR(scKeyB,atomB,2)+yShift
-                  yD = yA-yB
-                  yDsq = yd**2
-                  If(yDsq.le.rVerletSQ)Then
-                    zA = scCoordsR(scKeyA,atomA,3)
-                    zB = scCoordsR(scKeyB,atomB,3)+zShift
-                    zD = zA-zB
-                    zDsq = zd**2
-                    If(zDsq.le.rVerletSQ)Then
-                      rdSq = xDsq + yDsq + zDsq
-                      If(rdSq.le.rVerletSq)Then
-                        rd = sqrt(rdSq)
-                        ! Key
-                        nlKey = nlKey + 1
-                        ! Key/Type
-                        nl%i(nlKey,1) = atomA_ID                   ! A ID
-                        nl%i(nlKey,2) = atomB_ID                   ! B ID
-                        nl%i(nlKey,3) = scCoordsI(scKeyA,atomA,2)  ! A type
-                        nl%i(nlKey,4) = scCoordsI(scKeyB,atomB,2)  ! B type
-                        nl%i(nlKey,5) = inCell                     ! 1 if in cell, 0 if out of cell
-                        ! Displacement/Direction
-                        nl%r(nlKey,1) = rD
-                        nl%r(nlKey,2) = xD/rD                ! Vector from B to A (x)
-                        nl%r(nlKey,3) = yD/rD                ! Vector from B to A (y)
-                        nl%r(nlKey,4) = zD/rD                ! Vector from B to A (z)
-                        nl%r(nlKey,5) = xA
-                        nl%r(nlKey,6) = yA
-                        nl%r(nlKey,7) = zA
-                        nl%r(nlKey,8) = xB
-                        nl%r(nlKey,9) = yB
-                        nl%r(nlKey,10) = zB
-                        ! Cell
-                        nl%subCell(nlKey,1) = shiftArr(1)
-                        nl%subCell(nlKey,2) = shiftArr(2)
-                        nl%subCell(nlKey,3) = shiftArr(3)
-                        If(nlKey.eq.1)Then
-                          nl%rMin = rD
-                          nl%rMax = rD
-                        Else
-                          If(rD.gt.nl%rMax)Then
-                            nl%rMax = rD
-                          End If
-                          If(rD.lt.nl%rMin)Then
-                            nl%rMin = rD
+              Do atomB =1,scAtomCount(scKeyB)
+                If(l.eq.0.and.m.eq.0.and.n.eq.0.and.atomA.eq.atomB)Then
+                  ! skip
+                Else
+                  atomA_ID = scCoordsI(scKeyA,atomA,1)
+                  atomB_ID = scCoordsI(scKeyB,atomB,1)
+                  If(atomA_ID.gt.atomB_ID)Then
+                    uKey = (atomA_ID-1)*(atomA_ID)/2+atomB_ID
+                  Else
+                    uKey = (atomB_ID-1)*(atomB_ID)/2+atomA_ID
+                  End If
+                  If(nlUniqueKeyArr(uKey).eq.0)Then
+                    xA = scCoordsR(scKeyA,atomA,1)
+                    xB = scCoordsR(scKeyB,atomB,1)+xShift
+                    xD = xA-xB
+                    xDsq = xd**2
+                    If(xDsq.le.rVerletSQ)Then
+                      yA = scCoordsR(scKeyA,atomA,2)
+                      yB = scCoordsR(scKeyB,atomB,2)+yShift
+                      yD = yA-yB
+                      yDsq = yd**2
+                      If(yDsq.le.rVerletSQ)Then
+                        zA = scCoordsR(scKeyA,atomA,3)
+                        zB = scCoordsR(scKeyB,atomB,3)+zShift
+                        zD = zA-zB
+                        zDsq = zd**2
+                        If(zDsq.le.rVerletSQ)Then
+                          rdSq = xDsq + yDsq + zDsq
+                          If(rdSq.le.rVerletSq)Then
+                            nlUniqueKeyArr(uKey) = 1
+                            rd = sqrt(rdSq)
+                            ! Key
+                            nlKey = nlKey + 1
+                            ! Key/Type
+                            nl%i(nlKey,1) = atomA_ID                   ! A ID
+                            nl%i(nlKey,2) = atomB_ID                   ! B ID
+                            nl%i(nlKey,3) = scCoordsI(scKeyA,atomA,2)  ! A type
+                            nl%i(nlKey,4) = scCoordsI(scKeyB,atomB,2)  ! B type
+                            nl%i(nlKey,5) = inCell                     ! 1 if in cell, 0 if out of cell
+                            ! Displacement/Direction
+                            nl%r(nlKey,1) = rD
+                            nl%r(nlKey,2) = xD/rD                ! Vector from B to A (x)
+                            nl%r(nlKey,3) = yD/rD                ! Vector from B to A (y)
+                            nl%r(nlKey,4) = zD/rD                ! Vector from B to A (z)
+                            nl%r(nlKey,5) = xA
+                            nl%r(nlKey,6) = yA
+                            nl%r(nlKey,7) = zA
+                            nl%r(nlKey,8) = xB
+                            nl%r(nlKey,9) = yB
+                            nl%r(nlKey,10) = zB
+                            ! Cell
+                            nl%subCell(nlKey,1) = shiftArr(1)
+                            nl%subCell(nlKey,2) = shiftArr(2)
+                            nl%subCell(nlKey,3) = shiftArr(3)
+                            If(nlKey.eq.1)Then
+                              nl%rMin = rD
+                              nl%rMax = rD
+                            Else
+                              If(rD.gt.nl%rMax)Then
+                                nl%rMax = rD
+                              End If
+                              If(rD.lt.nl%rMin)Then
+                                nl%rMin = rD
+                              End If
+                            End If
                           End If
                         End If
                       End If
@@ -461,6 +452,8 @@ Module geom
     nl%length = nlKey
     print *,"NL Length: ",nl%length
   End Subroutine makeNL
+
+
 
 
 

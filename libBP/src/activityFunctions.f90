@@ -95,7 +95,7 @@ Module activityFunctions
     Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: decayDataArray
 ! Vars:  out
     Real(kind=DoubleReal), Dimension( : , : ), Allocatable :: isotopeChange
-    Integer(kind=StandardInteger) :: i,j,decaySteps
+    Integer(kind=StandardInteger) :: i,decaySteps
     Integer(kind=StandardInteger) :: calcOption
     Type(decayChainObj) :: decayChain
 ! -------------------------------------------------
