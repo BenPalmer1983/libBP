@@ -557,7 +557,8 @@ Module staticCalcs
         coords(cKey)%forces(nl(cKey)%atomB_ID(i),3) - forceArray(3)
     End Do
 !-------------------------------------------------------------------------------
-
+!
+!
 !------------------------------
 ! Total Energy
 !------------------------------
@@ -573,7 +574,9 @@ Module staticCalcs
     print *,coords(cKey)%totalEnergy,(coords(cKey)%totalEnergy/coords(cKey)%points)
 
 
-
+    Do i=1,coords(cKey)%points
+      print *,coords(cKey)%forces(i,1),coords(cKey)%forces(i,2),coords(cKey)%forces(i,3)
+    End Do
 
 
   End Subroutine calcEFS_Action
