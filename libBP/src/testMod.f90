@@ -8,9 +8,12 @@ Module testMod
   Use logicalMod
   Use strings
   Use general
+  Use printModTypes
+  Use printMod
   Use activityFunctionsTypes
   Use activityFunctions
   Use basicMaths
+  Use keysMod
   Use laplaceTransforms
   Use geomTypes
   Use geom
@@ -18,6 +21,8 @@ Module testMod
   Use potentials
   Use staticCalcsTypes
   Use staticCalcs
+  Use isotopesTypes
+  Use isotopes
 ! Force declaration of all variables
   Implicit None
 ! Public variables
@@ -214,23 +219,27 @@ Module testMod
 ! isotope chain data
     Implicit None ! Force declaration of all variables
 ! Vars Private
-    Type(coordsUnitType) :: coordsUnit
-    Type(coordsType) :: coords
-    Type(nlType) :: nl
-    Integer(kind=StandardInteger) :: i
+    Type(coordsUnitType), Dimension(1:4) :: coordsUnit
+    Type(coordsType), Dimension(1:4) :: coords
+    Type(nlType), Dimension(1:4) :: nl
+    Integer(kind=StandardInteger) :: i, cKey
 ! Start test
     print *,"Neighbour List Testing"
     print *,"==========================================================="
     Call initUnitCoords(coordsUnit)
-    Call initCoords(coords)
+    !Call initCoords(coords)
     coordsUnit%aLat = 4.04D0
     coordsUnit%xCopy = 4
     coordsUnit%yCopy = 4
     coordsUnit%zCopy = 4
-    Call standardCoords("FCC", coordsUnit)
-    Call expandUnitCoords(coordsUnit, coords)
-    Do i=1,coords%points
-      !print *,coords%label(i),coords%coords(i,1),coords%coords(i,2),coords%coords(i,3),coords%fracCoords(i,1)
+    !Call standardCoords("FCC", coordsUnit)
+    !Call expandUnitCoords(coordsUnit, coords)
+    Do cKey=1,size(coords%points)
+      Do i=1,coords(cKey)%points
+        print *,coords(cKey)%label(i),&
+        coords(cKey)%coords(i,1),coords(cKey)%coords(i,2),coords(cKey)%coords(i,3),&
+        coords(cKey)%fracCoords(i,1)
+      End Do
     End Do
     print *,coords%points
     Call makeNL(nl, coords, 6.5D0)
@@ -245,40 +254,81 @@ Module testMod
 ! isotope chain data
     Implicit None ! Force declaration of all variables
 ! Vars Private
-    Type(coordsUnitType) :: coordsUnit
-    Type(coordsType) :: coords
-    Type(nlType) :: nl
+    Type(coordsUnitType), Dimension(1:p_confs) :: coordsUnit
+    Type(coordsType), Dimension(1:p_confs) :: coords
+    Type(nlType), Dimension(1:p_confs) :: nl
     Type(potentialType) :: potential
+    Type(potentialSearchType) :: searchObj
+    Real(kind=DoubleReal), Dimension(1:3) :: yArray
+    Real(kind=DoubleReal) :: tempDp
+    Character(Len=16) :: inputStr
+!    Type(isotopesObj) :: isotopesList
+!    Type(isotopeObj) :: isotopeA
+! Load isotope data
+    !Call loadIsotopes(isotopesList)
+    !isotopeA = SearchIsotopes(26,28,isotopesList)
+    !Call printIsotopeDetails(isotopeA)
+    inputStr = "0.0D0"
+    tempDp = StrToDp(inputStr)
+    inputStr = "1.3D0"
+    tempDp = StrToDp(inputStr)
+! Init Page
+    Call initPage(mainPage)
 ! Start test
-    print *,"Static Calculation Testing"
-    print *,"==========================================================="
+    Call addLinePage("Static Calculation Testing","T")
 ! Set up coords
-    Call initUnitCoords(coordsUnit)
-    Call initCoords(coords)
+    Call initUnitCoords(coordsUnit)     ! geom.f90
+    Call initCoords(coords)             ! geom.f90
     coordsUnit%aLat = 4.04D0
     coordsUnit%xCopy = 4
     coordsUnit%yCopy = 4
     coordsUnit%zCopy = 4
-    Call standardCoords("FCC", coordsUnit)
-    Call expandUnitCoords(coordsUnit, coords)
-! Build neighbour list
-    Print *,"Build neighbour list"
-    Call makeNL(nl, coords, 6.5D0)
+    Call standardCoords("FCC", coordsUnit,1)  ! geom.f90
+    Call standardCoords("FCC", coordsUnit,2)  ! geom.f90
+    Call expandUnitCoords(coordsUnit, coords) ! geom.f90
 ! Init potential
-    Print *,"Init potential"
-    Call initPotential(potential)
+    Call addLinePage("Init potential")
+    Call initPotential(potential)        ! potentials.f90
 ! Load potential
-    Print *,"Load potential"
-    Call loadPotential("test.pot", potential)
+    Call addLinePage("Load potential")
+    Call loadPotential("test.pot", potential)  ! potentials.f90
 ! Assign atom IDs
-    Print *,"Assign IDs"
+    Call addLinePage("Assign IDs")
     Call atomLabelIDs(potential, coords)
-! Print summary
-    Call printPotentialSummary(potential)
-    !print *,potential%IDcount,"  ",coords%IDcount
-! Print potential
-    !Call printPotentialSummary(potential)
+! Print potential summary
+    Call printPotentialSummary(potential)      ! potentials.f90
+! Print
+    Call printAtomLabelIDs(coords)
+! Build neighbour list
+    Call addLinePage("Build neighbour list")
+    Call makeNL(nl, coords, 6.5D0)       ! geom.f90
 
+    Call printNLSummary(nl)
+
+    !Call printCoords(coords,1)
+    !Call calcEFS(coords, nl, potential, 0)
+    Call calcEFS(coords, nl, potential, 1)
+
+
+    searchObj%x = 2.6452D0
+    searchObj%atomID_A = 1
+    searchObj%atomID_B = 2
+    searchObj%fPotential = "MORSE"
+
+    yArray = SearchPotential(searchObj, potential)
+    !print *,searchObj%x,yArray(1),yArray(2),yArray(3)
+
+
+    searchObj%x = 2.6452D0
+    searchObj%atomID_A = 3
+    searchObj%atomID_B = 3
+    searchObj%fPotential = "MORSE"
+
+    !yArray = SearchPotential(searchObj, potential)
+    !print *,searchObj%x,yArray(1),yArray(2),yArray(3)
+
+
+    !Call printPage(mainPage)
 
   End Subroutine testStaticCalc
 

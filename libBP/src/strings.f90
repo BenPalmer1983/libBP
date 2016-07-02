@@ -20,15 +20,17 @@ Module strings
   Public :: randomLCG_R_n_strings
   Public :: randomLCG_R_xn_strings
 ! ---- Functions
-  Public :: StrToUpper
-  Public :: StrToLower
-  Public :: StrInStr
+  Public :: StrToUpper      ! All chars to upper
+  Public :: StrToLower      ! All chars to lower
+  Public :: StrInStr        !
   Public :: StrReplace
   Public :: NumericOnly
   Public :: SingleSpaces
   Public :: RemoveSpaces
   Public :: RemoveSpacesQ
   Public :: TrimSpaces
+  Public :: TrimStr
+  Public :: TrimmedLength
   Public :: BlankString
   Public :: BlankStringArray
   Public :: WipeString
@@ -48,11 +50,16 @@ Module strings
   Public :: CleanString
   Public :: TimeToHuman
   Public :: IfStringEmpty
+  Public :: IsBlank
+  Public :: ConcatStr
+  Public :: StrMatch
+  Public :: TestBoolStr
 ! ---- Subroutines
   Public :: explode
   Public :: randCharacter
   Public :: TrimString
   Public :: StrCenter
+  Public :: StrAlign
 ! Interfaces
   Interface BlankStringArray
     Module Procedure BlankString1DArray, BlankString2DArray
@@ -130,23 +137,28 @@ Module strings
       If(Present(caseSensitiveIn))Then
         caseSensitive = caseSensitiveIn
       End If
-! Both to uppercase
-      If(caseSensitive)Then
-        haystackWorking = haystack
-        needleWorking = needle
+! If needle longer than haystack
+      If(Len(needle).gt.Len(haystack))Then
+        inString = .false.
       Else
-        haystackWorking = StrToUpper(haystack)
-        needleWorking = StrToUpper(needle)
-      End If
+! Both to uppercase
+        If(caseSensitive)Then
+          haystackWorking = haystack
+          needleWorking = needle
+        Else
+          haystackWorking = StrToUpper(haystack)
+          needleWorking = StrToUpper(needle)
+        End If
 ! Loop through characters
-      Do i=1,Len(haystackWorking)-len(needleWorking)+1
-        If(haystackWorking(i:(i+len(needleWorking)-1)).eq.needleWorking)Then
-          inString = .true.
-        End If
-        If(inString)Then
-          Exit
-        End If
-      End Do
+        Do i=1,Len(haystackWorking)-len(needleWorking)+1
+          If(haystackWorking(i:(i+len(needleWorking)-1)).eq.needleWorking)Then
+            inString = .true.
+          End If
+          If(inString)Then
+            Exit
+          End If
+        End Do
+      End If
     End Function StrInStr
 !---------------------------------------------------------------------------------------------------------------------------------------
   Function StrReplace (input, needle, replace) RESULT (output)
@@ -332,7 +344,85 @@ Module strings
       End If
     End Do
   End Function TrimSpaces
-
+!---------------------------------------------------------------------------------------------------------------------------------------
+  Function TrimStr(strIn) Result (strOut)
+! Trims both ends of the string
+    Implicit None  ! Force declaration of all variables
+! Vars:  In
+    Character(*) :: strIn
+! Vars:  Out
+    Character(Len(strIn)) :: strOut
+! Vars:  Private
+    Integer(kind=StandardInteger) :: i, j, flag
+! Init
+    flag = 0
+    j = 0
+    strOut = WipeString(strOut)
+! Trim leading spaces
+    Do i=1,len(strIn)
+      If(flag.eq.0)Then
+        If(strIn(i:i).eq.char(0))Then
+! Do nothing
+        ElseIf(strIn(i:i).eq.char(32))Then
+! Do nothing
+        Else
+          flag = flag + 1
+        End If
+      End If
+      If(flag.eq.1)Then
+        j= j + 1
+        strOut(j:j) = strIn(i:i)
+      End If
+    End Do
+! Trim trailing spaces
+    j = len(strOut)+1
+    Do i=1,len(strOut)
+      j = j - 1
+      If((iChar(strOut(j:j)).eq.0))Then
+        strOut(j:j) = char(0)
+      ElseIf((iChar(strOut(j:j)).eq.32))Then
+        strOut(j:j) = char(0)
+      Else
+        Exit
+      End If
+    End Do
+  End Function TrimStr
+!---------------------------------------------------------------------------------------------------------------------------------------
+  Function TrimmedLength(strIn) Result (strLen)
+! Trims both ends of the string
+    Implicit None  ! Force declaration of all variables
+! Vars:  In
+    Character(*) :: strIn
+! Vars:  Out
+    Integer(kind=StandardInteger) :: strLen
+! Vars:  Private
+    Integer(kind=StandardInteger) :: i, j
+! Init
+    strLen = Len(strIn)
+! Subtract leading spaces/blanks
+    Do i=1,len(strIn)
+      If(strIn(i:i).eq.char(0))Then
+        strLen = strLen - 1
+      ElseIf(strIn(i:i).eq.char(32))Then
+        strLen = strLen - 1
+      Else
+        Exit
+      End If
+    End Do
+! Subtract trailing spaces
+    j = len(strIn)+1
+    Do i=1,len(strIn)
+      j = j - 1
+      If((iChar(strIn(j:j)).eq.0))Then
+        strLen = strLen - 1
+      ElseIf((iChar(strIn(j:j)).eq.32))Then
+        strLen = strLen - 1
+      Else
+        Exit
+      End If
+    End Do
+  End Function TrimmedLength
+!---------------------------------------------------------------------------------------------------------------------------------------
   Function BlankString (input) RESULT (output)
     Character(*), INTENT(IN) :: input
     Character(Len(input)) :: output
@@ -341,7 +431,7 @@ Module strings
       output(i:i) = " "
     End Do
   End Function BlankString
-
+!---------------------------------------------------------------------------------------------------------------------------------------
   Function BlankString1DArray (input) RESULT (output)
     Character(*), Dimension(:), INTENT(IN) :: input
     Character(Len(input)) :: line
@@ -354,7 +444,7 @@ Module strings
       output(i) = line
     End Do
   End Function BlankString1DArray
-
+!---------------------------------------------------------------------------------------------------------------------------------------
   Function BlankString2DArray (input) RESULT (output)
     Character(*), Dimension(:,:), INTENT(IN) :: input
     Character(Len(input)) :: line
@@ -555,29 +645,24 @@ Module strings
 ! Vars:  Out
     Real(kind=DoubleReal) :: outputDouble
 ! Vars:  Private
-    Character(Len(input)+2) :: inputTemp
-    Integer(kind=StandardInteger) :: i
+    Character(Len=32) :: inputRewritten
+    Integer(kind=StandardInteger) :: i, j
 ! Check format
+    input = StrToUpper(input)
     input = Trim(adjustl(input))
-    outputDouble = 0.0D0
     input = StrReplace(input, "E", "D")
-    If(StrInStr(input,"D"))Then
-      Read(input,*) outputDouble
-    Else
-      inputTemp = BlankString(inputTemp)
-      Do i=1,Len(input)
-        If(input(i:i).eq." ")Then
-          Exit
-        End If
-        If(iChar(input(i:i)).eq.0)Then
-          Exit
-        End If
-        inputTemp(i:i) = input(i:i)
-      End Do
-      inputTemp(i:i) = "D"
-      inputTemp(i+1:i+1) = "0"
-      Read(inputTemp,*) outputDouble
-    End If
+    input = StrReplace(input, "D+", "D")
+! rewrite
+    inputRewritten = BlankString(inputRewritten)
+    j = 0
+    Do i=1,len(input)
+      If(CharCheckReal(input(i:i)))Then
+        j = j + 1
+        inputRewritten(j:j) = input(i:i)
+      End If
+    End Do
+! Read into var
+    Read(inputRewritten,*) outputDouble
   End Function StrToDp
 
   Function StrToBool (inputIn) RESULT (output)
@@ -743,8 +828,6 @@ Module strings
     stringOut = trim(adjustl(stringOut))
   End Function TimeToHuman
 
-
-
   Function IfStringEmpty(stringIn) Result (result)
 ! Check for an empty string
 ! Spaces (iChar = 32) and iChar = 0 are empty
@@ -759,20 +842,177 @@ Module strings
 ! Test string
     Do i=1,Len(stringIn)
       charAscii = iChar(stringIn(i:i))
-      If(charAscii.eq.0)Then
-        Exit
+      If(charAscii.ne.0)Then
+        If(charAscii.ne.32)Then
+          result = .false.
+          Exit
+        End If
       End If
-      If(charAscii.eq.32)Then
-        Exit
-      End If
-      result = .false.
-      Exit
     End Do
-
   End Function IfStringEmpty
 
+  Function IsBlank(stringIn) Result (result)
+! Check for an empty string (same as IfStringEmpty)
+! Spaces (iChar = 32) and iChar = 0 are empty
+    Implicit None  ! Force declaration of all variables
+! In:      Declare variables
+    Character(*) :: stringIn
+! Out:     Declare variables
+    Logical :: result
+    Integer(kind=StandardInteger) :: i, charAscii
+! Assume empty
+    result = .true.
+! Test string
+    Do i=1,Len(stringIn)
+      charAscii = iChar(stringIn(i:i))
+      If(charAscii.ne.0)Then
+        If(charAscii.ne.32)Then
+          result = .false.
+          Exit
+        End If
+      End If
+    End Do
+  End Function IsBlank
 
 
+  Function ConcatStr(stringA, stringB, forceTrimIn) Result (stringC)
+! Join two strings, returning in first string length
+    Implicit None  ! Force declaration of all variables
+! Vars:  In
+    Character(*) :: stringA
+    Character(*) :: stringB
+    Logical, Optional :: forceTrimIn
+! Vars:  Out
+    Character(Len(stringA)) :: stringC
+! Vars:  Private
+    Logical :: forceTrim
+    Integer(kind=StandardInteger) :: i, j, flag
+! Init
+    forceTrim = .true.
+    stringC = WipeString(stringC)
+! Optional arguments
+    If(Present(forceTrimIn))Then
+      forceTrim = forceTrimIn
+    End If
+! Trim strings if required
+    If(forceTrim)Then
+      stringA = TrimStr(stringA)
+      stringB = TrimStr(stringB)
+    End If
+    flag = 1
+    j = 0
+    Do i=1,Len(stringA)
+      j = j + 1
+      If(flag.eq.1)Then
+        If(ichar(stringA(j:j)).eq.0)Then
+          flag = 2
+          j = 1
+        End If
+      End If
+      If(flag.eq.2)Then
+        If(j.gt.len(stringB))Then
+          Exit
+        End If
+        If(ichar(stringB(j:j)).eq.0)Then
+          Exit
+        End If
+      End If
+      If(flag.eq.1)Then
+        stringC(i:i) = stringA(j:j)
+      End If
+      If(flag.eq.2)Then
+        stringC(i:i) = stringB(j:j)
+      End If
+    End Do
+  End Function ConcatStr
+
+  Function StrMatch(strA_In,strB_In,caseSensitiveIn) Result (matchResult)
+! Trims spaces and zeros
+    Implicit None   ! Force declaration of all variables
+! Vars:  In
+    Character(*) :: strA_In
+    Character(*) :: strB_In
+    Logical, Optional :: caseSensitiveIn
+! Vars:  Out
+    Logical :: matchResult
+! Vars:  Private
+    Logical :: caseSensitive
+    Integer(kind=StandardInteger) :: i
+    Character(Len(strA_In)) :: strA
+    Character(Len(strB_In)) :: strB
+! Optional Arguments
+    caseSensitive = .true.
+    If(Present(caseSensitiveIn))Then
+      caseSensitive = caseSensitiveIn
+    End if
+! Init
+    matchResult = .true.
+! Adjust strings
+    If(caseSensitive)Then
+      strA = strA_In
+      strB = strB_In
+    Else
+      strA = StrToUpper(strA_In)
+      strB = StrToUpper(strB_In)
+    End If
+! Trim
+    strA = TrimStr(strA)
+    strB = TrimStr(strB)
+! Check for match
+    Do i=1,len(strA)
+      If(i.gt.len(strB))Then
+        If(iChar(strA(i:i)).ne.0)Then
+          matchResult = .false.
+        End If
+        Exit
+      End If
+      If(strA(i:i).ne.strB(i:i))Then
+        matchResult = .false.
+        Exit
+      End If
+      If(ichar(strA(i:i)).eq.0)Then
+        If(iChar(strB(i:i)).eq.0)Then
+          Exit
+        Else
+          matchResult = .false.
+          Exit
+        End If
+      End If
+    End Do
+  End Function StrMatch
+
+  Function TestBoolStr(strTest) Result (result)
+! Trims spaces and zeros
+    Implicit None   ! Force declaration of all variables
+! Vars:  In
+    Character(*) :: strTest
+! Vars:  Out
+    Logical :: result
+! Vars:  Private
+    Character(Len(strTest)) :: str
+! Trim
+    str = TrimStr(strTest)
+! Convert to UC
+    str = StrToUpper(str)
+! Init
+    result = .false.
+! Test
+    If(str(1:1).eq."1")Then
+      result = .true.
+    End If
+    If(str(1:1).eq."Y")Then
+      result = .true.
+    End If
+    If(str(1:1).eq."T")Then
+      result = .true.
+    End If
+    If(str(1:2).eq.".T")Then
+      result = .true.
+    End If
+    If(str(1:2).eq."ON")Then
+      result = .true.
+    End If
+  End Function TestBoolStr
 
 ! ---------------------------------------------------------
 ! MODULE SUBROUTINES
@@ -826,6 +1066,8 @@ Module strings
     End If
   End Subroutine explode
 
+! Character Functions
+
   Subroutine randCharacter(letter, randSwitchIn, setIn)
 ! In/Out:      Declare variables
     Character(len=1) :: letter
@@ -877,6 +1119,82 @@ Module strings
       letter = alphaNum(characterNum:characterNum)
     End If
   End Subroutine randCharacter
+
+  Function CharCheckAlpha(charIn) Result (boolResult)
+! Check if character is a letter
+    Implicit None   ! Force declaration of all variables
+! Vars:  In
+    Character(Len=1), Optional :: charIn
+! Vars:  Out
+    Logical :: boolResult
+! Init
+    boolResult = .false.
+! Check if alpha Upper Case
+    If(iChar(charIn).ge.65.and.iChar(charIn).le.90)Then
+      boolResult = .true.
+    End If
+! Check if alpha Lower Case
+    If(iChar(charIn).ge.97.and.iChar(charIn).le.122)Then
+      boolResult = .true.
+    End If
+  End Function CharCheckAlpha
+
+  Function CharCheckNumeric(charIn) Result (boolResult)
+! Check if character is a letter
+    Implicit None   ! Force declaration of all variables
+! Vars:  In
+    Character(Len=1), Optional :: charIn
+! Vars:  Out
+    Logical :: boolResult
+! Init
+    boolResult = .false.
+! Check if numeric
+    If(iChar(charIn).ge.48.and.iChar(charIn).le.57)Then
+      boolResult = .true.
+    End If
+  End Function CharCheckNumeric
+
+  Function CharCheckAlphaNumeric(charIn) Result (boolResult)
+! Check if character is a letter
+    Implicit None   ! Force declaration of all variables
+! Vars:  In
+    Character(Len=1), Optional :: charIn
+! Vars:  Out
+    Logical :: boolResult
+! Init
+    boolResult = .false.
+    boolResult = CharCheckAlpha(charIn)
+    If(.not.boolResult)Then
+      boolResult = CharCheckNumeric(charIn)
+    End If
+  End Function CharCheckAlphaNumeric
+
+  Function CharCheckReal(charIn) Result (boolResult)
+  ! Check if character is a letter
+    Implicit None   ! Force declaration of all variables
+  ! Vars:  In
+    Character(Len=1), Optional :: charIn
+  ! Vars:  Out
+    Logical :: boolResult
+  ! Init
+    boolResult = .false.
+    If(charIn.eq.".")Then
+      boolResult = .true.
+    End If
+    If(charIn.eq."-")Then
+      boolResult = .true.
+    End If
+    If(charIn.eq."+")Then
+      boolResult = .true.
+    End If
+    If(charIn.eq."D")Then
+      boolResult = .true.
+    End If
+    If(.not.boolResult)Then
+      boolResult = CharCheckNumeric(charIn)
+    End If
+  End Function CharCheckReal
+
 
   Subroutine TrimString(trimStr, outputLength, padCharIn)
 ! Trims
@@ -930,39 +1248,110 @@ Module strings
     End Do
   End Subroutine TrimString
 
+!----------
 
-  Subroutine StrCenter(strIn, tarLenIn)
+  Subroutine StrCenter(line, lineLengthIn)
 ! Trims
     Implicit None  ! Force declaration of all variables
-! In/Out:      Declare variables
-    Character(*) :: strIn
-    Integer(kind=StandardInteger), Optional :: tarLenIn
-! Private:     Declare variables
-    Character(Len(strIn)) :: str
-    Integer(kind=StandardInteger) :: i, j, trimmedLen, lenStrIn, paddingL, paddingR
-! length of useable string
-    lenStrIn = Len(strIn)
-    If(Present(tarLenIn))Then
-      lenStrIn = tarLenIn
+! Vars:  In/Out
+    Character(*) :: line
+    Integer(kind=StandardInteger), Optional :: lineLengthIn
+! Vars:  Private
+    Integer(kind=StandardInteger) :: i, j
+    Integer(kind=StandardInteger) :: lineLength
+    Character(Len(line)) :: lineTemp
+    Integer(kind=StandardInteger) :: trimStrLength, paddingL, paddingR
+! Optional arguments
+    lineLength = Len(line)
+    If(Present(lineLengthIn))Then
+      lineLength = lineLengthIn
     End If
-    str = strIn
-    Call TrimString(str, trimmedLen, " ")
-    paddingL = floor((lenStrIn-trimmedLen)/2.0D0)
-    paddingR = (lenStrIn-trimmedLen)-paddingL
-    j=0
-    Do i=1,paddingL
-      j = j + 1
-      strIn(j:j) = " "
-    End Do
-    Do i=1,trimmedLen
-      j = j + 1
-      strIn(j:j) = str(i:i)
-    End Do
-    Do i=1,paddingR
-      j = j + 1
-      strIn(j:j) = " "
-    End Do
+! Init vars
+    lineTemp = wipeString(lineTemp)
+! Trim string
+    line = TrimStr(line)
+! Padding values
+    trimStrLength = TrimmedLength(line)
+    If(trimStrLength.lt.lineLength)Then
+      paddingL = floor((lineLength-trimStrLength)/2.0D0)
+      paddingR = (lineLength-trimStrLength)-paddingL
+      j=0
+      Do i=1,paddingL
+        j = j + 1
+        lineTemp(j:j) = " "
+      End Do
+      Do i=1,trimStrLength
+        j = j + 1
+        lineTemp(j:j) = line(i:i)
+      End Do
+      Do i=1,paddingR
+        j = j + 1
+        lineTemp(j:j) = " "
+      End Do
+    Else
+      lineTemp(1:lineLength) = line(1:lineLength)
+    End If
+    line = lineTemp
   End Subroutine StrCenter
+
+  Subroutine StrAlign(line, align, lineLengthIn)
+! Trims
+    Implicit None  ! Force declaration of all variables
+! Vars:  In/Out
+    Character(*) :: line
+    Character(Len=1) :: align
+    Integer(kind=StandardInteger), Optional :: lineLengthIn
+! Vars:  Private
+    Integer(kind=StandardInteger) :: i, j
+    Integer(kind=StandardInteger) :: lineLength
+    Character(Len(line)) :: lineTemp
+    Integer(kind=StandardInteger) :: trimStrLength, paddingL, paddingR
+! Optional arguments
+    lineLength = Len(line)
+    If(Present(lineLengthIn))Then
+      lineLength = lineLengthIn
+    End If
+! Init vars
+    lineTemp = wipeString(lineTemp)
+! Trim string
+    line = TrimStr(line)
+! Padding values
+    trimStrLength = TrimmedLength(line)
+    If(trimStrLength.lt.lineLength)Then
+      If(align.eq."C")Then
+        paddingL = floor((lineLength-trimStrLength)/2.0D0)
+        paddingR = (lineLength-trimStrLength)-paddingL
+      ElseIf(align.eq."R")Then
+        paddingL = (lineLength-trimStrLength)
+        paddingR = 0
+      Else
+        paddingL = 0
+        paddingR = (lineLength-trimStrLength)
+      End If
+      j=0
+      Do i=1,paddingL
+        j = j + 1
+        lineTemp(j:j) = " "
+      End Do
+      Do i=1,trimStrLength
+        j = j + 1
+        lineTemp(j:j) = line(i:i)
+      End Do
+      Do i=1,paddingR
+        j = j + 1
+        lineTemp(j:j) = " "
+      End Do
+    Else
+      lineTemp(1:lineLength) = line(1:lineLength)
+    End If
+    line = lineTemp
+  End Subroutine StrAlign
+
+
+
+
+
+
 
 !---------------------------------------------------------------------------------------------------------------------------------------
 ! String random number functions (as these are loaded AFTER strings MOD with the rng MOD

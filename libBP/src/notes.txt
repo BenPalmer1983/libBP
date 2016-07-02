@@ -1,0 +1,3 @@
+Running multicore programs.
+
+mpiexec -n 4 test.x test.in

@@ -31,6 +31,7 @@ Module general
   Public :: strToDPArr
   Public :: strToStrArr
   Public :: timeAcc
+  Public :: completePath
 ! Functions
   Public :: FileExists
   Public :: CountRowFields
@@ -740,6 +741,25 @@ Module general
     time = time + timeEnd - timeStart
   End Subroutine timeAcc
 
+! Complete path subroutine
+  Subroutine completePath(pathIn)
+! Complete path using the current working directory
+    Implicit None   ! Force declaration of all variables
+! Vars:  In/Out
+    Character(*) :: pathIn
+! Vars:  Private
+    Character(Len(pathIn)) :: pathCWD
+! Check if absolute i.e. starts with /
+    If(pathIn(1:1).eq."/")Then
+! Do nothing, already absolute path
+    Else
+      Call getcwd(pathCWD)
+      pathCWD = trim(pathCWD)//"/"
+      pathIn = ConcatStr(pathCWD,pathIn)
+    End If
+  End Subroutine completePath
+
+
 
 ! --------------------------------------------------------------------------------------------------
 !    Functions
@@ -786,10 +806,6 @@ Module general
         End If
       End If
     End Do
-
-
-
-
   End Function CountRowFields
 
 

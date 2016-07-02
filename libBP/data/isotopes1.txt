@@ -1,0 +1,39 @@
+Atomic Number = 1
+Atomic Symbol = H
+Mass Number = 1
+Relative Atomic Mass = 1.00782503207(10)
+Isotopic Composition = 0.999885(70)
+Standard Atomic Weight = 1.00794(7)
+Notes = g,m,r,b,w
+
+Atomic Number = 1
+Atomic Symbol = D
+Mass Number = 2
+Relative Atomic Mass = 2.0141017778(4)
+Isotopic Composition = 0.000115(70)
+Standard Atomic Weight = 1.00794(7)
+Notes = g,m,r,b,w
+
+Atomic Number = 1
+Atomic Symbol = T
+Mass Number = 3
+Relative Atomic Mass = 3.0160492777(25)
+Isotopic Composition =
+Standard Atomic Weight = 1.00794(7)
+Notes = g,m,r,b,w
+
+Atomic Number = 1
+Atomic Symbol = H
+Mass Number = 4
+Relative Atomic Mass = 4.02781(11)
+Isotopic Composition =
+Standard Atomic Weight = 1.00794(7)
+Notes = g,m,r,b,w
+
+Atomic Number = 1
+Atomic Symbol = H
+Mass Number = 5
+Relative Atomic Mass = 5.03531(11)
+Isotopic Composition =
+Standard Atomic Weight = 1.00794(7)
+Notes = g,m,r,b,w

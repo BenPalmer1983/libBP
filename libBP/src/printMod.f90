@@ -6,16 +6,24 @@ Module printModTypes
     Logical :: printHeaderRow = .false.
     Logical :: printHeaderColumn = .false.
     Logical :: colAutoWidth = .false.
-    Character(Len=64) :: headerRowColumn = "  "   ! only used if row and column headers are there
-    Character(Len=64), Dimension(1:25) :: headerRow = "  "
-    Character(Len=64), Dimension(1:100) :: headerColumn = "  "
-    Character(Len=64), Dimension(1:100,1:25) :: tableData = "  "
+    Character(Len=96) :: headerRowColumn = "  "   ! only used if row and column headers are there
+    Character(Len=96), Dimension(1:25) :: headerRow = "  "
+    Character(Len=96), Dimension(1:100) :: headerColumn = "  "
+    Character(Len=96), Dimension(1:100,1:25) :: tableData = "  "
     Integer(kind=StandardInteger) :: padU = 0, padD = 0, padR = 0, padL = 0
     Integer(kind=StandardInteger) :: rows, columns
     Integer(kind=StandardInteger) :: lastRow = 0
     Integer(kind=StandardInteger), Dimension(1:25) :: colWidth = 16
     Integer(kind=StandardInteger) :: printHeaderColumnWidth = 16
-  End Type
+  End Type tableObj
+
+  Type :: pageObj
+    Integer(kind=StandardInteger) :: pageWidth=96
+    Integer(kind=StandardInteger) :: line=0
+    Character(Len=128), Dimension(1:1000) :: lineText
+    Character(Len=1), Dimension(1:1000) :: lineAlign = "L"
+    Character(Len=4), Dimension(1:1000) :: lineStyle = "    "
+  End Type pageObj
 
 
 End Module printModTypes
@@ -38,18 +46,19 @@ Module printMod
   Use kinds
   Use strings
   Use general
+  Use mpiSubsTypes
+  Use mpiSubs
   Use units
   Use printModTypes
-
-
-
 ! Force declaration of all variables
   Implicit None
-
-
+! Define variables
+  Type(pageObj) :: mainPage
 ! Privacy of variables/functions/subroutines
   Private
-! Public Subroutines
+! Set Public Variables
+  Public :: mainPage
+! Public Subroutines - Print
   Public :: printBR
   Public :: printTableInit
   Public :: printTableAddHeadersR
@@ -57,6 +66,11 @@ Module printMod
   Public :: printTableAddHeadersRC
   Public :: printTableAddRow
   Public :: printTableMake
+! Public Subroutines - Page
+  Public :: initPage
+  Public :: addLinePage
+  Public :: printPage
+
 ! Interfaces
   Interface printTableAddRow
     Module Procedure printTableAddRow_DP, printTableAddRow_Char
@@ -79,6 +93,7 @@ Module printMod
     Character(Len=512) :: printLine
     Character(Len=1) :: brChar
 ! Optional argument
+    printLine = WipeString(printLine)
     width = 90
     If(Present(widthIn))Then
       width = widthIn
@@ -432,6 +447,106 @@ Module printMod
       Call dataRow(table,row)
     End Do
   End Subroutine dataRows
+
+
+! --------------------------------------------------------------------------
+!     Print Page
+! --------------------------------------------------------------------------
+
+  Subroutine initPage(pageIn)
+! Resets the pageObj to default variables
+    Implicit None   ! Force declaration of all variables
+! Vars:  In/Out
+    Type(pageObj) :: pageIn
+! Vars:  Private
+    Integer(kind=StandardInteger) :: line
+! Reset Object
+    pageIn%pageWidth = 64
+    pageIn%line = 0
+    Do line=1,size(pageIn%lineText,1)
+      pageIn%lineText(line) = WipeString(pageIn%lineText(line))
+      pageIn%lineAlign(line) = "L"
+    End Do
+  End Subroutine initPage
+
+  Subroutine addLinePage(lineText, styleIn, pageIn)
+! Adds line to the page
+    Implicit None   ! Force declaration of all variables
+! Vars:  In/Out
+    Character(*) :: lineText
+    Type(pageObj), Optional :: pageIn
+    Character(*), Optional :: styleIn
+! Vars:  Private
+    Character(Len=4) :: style
+! Optional Arguments
+    style = "    "
+    If(Present(styleIn))Then
+      style = styleIn
+    End If
+    style = StrToUpper(style)
+! If input page is present, use that
+    If(Present(pageIn))Then
+! Increment line count
+      pageIn%line = pageIn%line+1
+! No alignment
+      If(StrInStr(style,"U"))Then
+        pageIn%lineText(pageIn%line) = lineText
+      Else
+        pageIn%lineText(pageIn%line) = TrimStr(lineText)
+      End If
+! Style
+      pageIn%lineStyle(pageIn%line) = style
+    Else  ! Use main page
+! Increment line count
+      mainPage%line = mainPage%line+1
+! No alignment
+      If(StrInStr(style,"U"))Then
+        mainPage%lineText(mainPage%line) = lineText
+      Else
+        mainPage%lineText(mainPage%line) = TrimStr(lineText)
+      End If
+! Style
+      mainPage%lineStyle(mainPage%line) = style
+    End If
+  End Subroutine addLinePage
+
+  Subroutine printPage(pageIn)
+! Print page out to terminal
+    Implicit None   ! Force declaration of all variables
+! Vars:  In/Out
+    Type(pageObj) :: pageIn
+! Vars:  Private
+    Integer(kind=StandardInteger) :: line
+    Type(mpiObj) :: printMPI
+! Init MPI obj
+    Call m_initMpi(printMPI)
+! Loop through lines
+    Do line=1,pageIn%line
+! Align Text
+      If(StrInStr(pageIn%lineStyle(line),"L"))Then
+        Call StrAlign(pageIn%lineText(line), "L", pageIn%pageWidth)
+      End If
+      If((StrInStr(pageIn%lineStyle(line),"C")).or.(StrInStr(pageIn%lineStyle(line),"T")))Then
+        Call StrAlign(pageIn%lineText(line), "C", pageIn%pageWidth)
+      End If
+      If(StrInStr(pageIn%lineStyle(line),"R"))Then
+        Call StrAlign(pageIn%lineText(line), "R", pageIn%pageWidth)
+      End If
+! Make under/over lines
+      If(printMPI%ID.eq.0)Then
+        If(StrInStr(pageIn%lineStyle(line),"T"))Then
+          Call printBR(pageIn%pageWidth, "=")
+        End If
+        print *,pageIn%lineText(line)(1:pageIn%pageWidth)
+        If((StrInStr(pageIn%lineStyle(line),"T")).or.(StrInStr(pageIn%lineStyle(line),"U")))Then
+          Call printBR(pageIn%pageWidth, "=")
+        End If
+      End If
+    End Do
+  End Subroutine printPage
+
+
+
 
 
 

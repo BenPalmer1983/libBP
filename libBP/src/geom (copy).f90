@@ -13,19 +13,6 @@
 Module geomTypes
 ! Setup Modules
   Use kinds
-! Force declaration of all variables
-  Implicit None
-! Vars:  Module Parameters
-  Integer(kind=StandardInteger), Parameter :: p_confs = 4
-  Integer(kind=StandardInteger), Parameter :: p_cMax = 1024        ! Coords max length
-  Integer(kind=StandardInteger), Parameter :: p_cuMax = 128        ! Coords unit type max length
-  Integer(kind=StandardInteger), Parameter :: p_nlMax = 20000      ! Neighbour list length
-! Make private
-  Private
-! Public Variables and Parameters
-  Public :: p_confs, p_cuMax, p_cMax, p_nlMax
-! Public derived types
-  Public :: coordsUnitType, coordsType, nlType
 
   Type :: coordsUnitType
     Integer(kind=StandardInteger) :: points = 0
@@ -34,53 +21,42 @@ Module geomTypes
     Integer(kind=StandardInteger) :: zCopy = 1
     Real(kind=DoubleReal) :: aLat = 1.0D0
     Real(kind=DoubleReal), Dimension(1:3,1:3) :: unitCell
-    Character(Len=16), Dimension(1:p_cuMax) :: label           ! Unit labels
-    Integer(kind=StandardInteger), Dimension(1:p_cuMax) :: labelID
-    Real(kind=DoubleReal), Dimension(1:p_cuMax,1:3) :: unitCoords   ! Unit coords - fractional
-    Real(kind=DoubleReal), Dimension(1:p_cuMax,1:3) :: unitForces   ! Unit coords - fractional
+    Character(Len=16), Dimension(1:128) :: label           ! Unit labels
+    Integer(kind=StandardInteger), Dimension(1:128) :: labelID
+    Real(kind=DoubleReal), Dimension(1:128,1:3) :: unitCoords   ! Unit coords - fractional
+    Real(kind=DoubleReal), Dimension(1:128,1:3) :: unitForces   ! Unit coords - fractional
   End Type coordsUnitType
 
   Type :: coordsType
     Integer(kind=StandardInteger) :: points = 0
     Real(kind=DoubleReal) :: aLat = 0.0D0
-    Character(Len=16), Dimension(1:p_cMax) :: label           ! Unit labels
-    Integer(kind=StandardInteger), Dimension(1:p_cMax) :: labelID
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: fracCoords   ! coords - fractional
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: coords   ! coords - fractional
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: forces   ! coords - fractional
+    Character(Len=16), Dimension(1:1024) :: label           ! Unit labels
+    Integer(kind=StandardInteger), Dimension(1:1024) :: labelID
+    Real(kind=DoubleReal), Dimension(1:1024,1:3) :: fracCoords   ! coords - fractional
+    Real(kind=DoubleReal), Dimension(1:1024,1:3) :: coords   ! coords - fractional
+    Real(kind=DoubleReal), Dimension(1:1024,1:3) :: forces   ! coords - fractional
     Integer(kind=StandardInteger) :: IDcount
-    Character(Len=16), Dimension(1:64) :: atomIDs
-    Integer(kind=StandardInteger) :: atomID_Count
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: electronDensity
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: atomEnergy
-    Real(kind=DoubleReal) :: pairEnergy
-    Real(kind=DoubleReal) :: embeddingEnergy
-    Real(kind=DoubleReal) :: totalEnergy
   End Type coordsType
 
   Type :: nlType
 ! 6.2MB per neighbour list
 ! Atom details
-    Integer(kind=StandardInteger), Dimension(1:p_nlMax) :: atomA_ID
-    Integer(kind=StandardInteger), Dimension(1:p_nlMax) :: atomB_ID
-    Integer(kind=StandardInteger), Dimension(1:p_nlMax) :: atomA_Type
-    Integer(kind=StandardInteger), Dimension(1:p_nlMax) :: atomB_Type
-    Integer(kind=StandardInteger), Dimension(1:p_nlMax) :: atomPairKey
-    Integer(kind=StandardInteger), Dimension(1:p_nlMax) :: inCell
+    Integer(kind=StandardInteger), Dimension(1:50000) :: atomA_ID
+    Integer(kind=StandardInteger), Dimension(1:50000) :: atomB_ID
+    Integer(kind=StandardInteger), Dimension(1:50000) :: atomA_Type
+    Integer(kind=StandardInteger), Dimension(1:50000) :: atomB_Type
+    Integer(kind=StandardInteger), Dimension(1:50000) :: inCell
 ! Position Details
-    Real(kind=DoubleReal), Dimension(1:p_nlMax) :: rD
-    Real(kind=DoubleReal), Dimension(1:p_nlMax,1:3) :: vecAB
-    Real(kind=DoubleReal), Dimension(1:p_nlMax,1:3) :: coordsA
-    Real(kind=DoubleReal), Dimension(1:p_nlMax,1:3) :: coordsB
+    Real(kind=DoubleReal), Dimension(1:50000) :: rD
+    Real(kind=DoubleReal), Dimension(1:50000,1:3) :: vecAB
+    Real(kind=DoubleReal), Dimension(1:50000,1:3) :: coordsA
+    Real(kind=DoubleReal), Dimension(1:50000,1:3) :: coordsB
 ! Subcell
-    Integer(kind=StandardInteger), Dimension(1:p_nlMax,1:3) :: subCell
-    Integer(kind=StandardInteger), Dimension(1:p_nlMax,1:3) :: cell
-! Subcell
-    Integer(kind=StandardInteger) :: scCount = 0
-    Real(kind=DoubleReal) :: scALat
-    Integer(kind=StandardInteger) :: maxAtomsPerSC = 0
+    Integer(kind=StandardInteger), Dimension(1:50000,1:3) :: subCell
+    Integer(kind=StandardInteger), Dimension(1:50000,1:3) :: cell
 ! Misc
     Integer(kind=StandardInteger) :: length = 0
+    Integer(kind=StandardInteger) :: scCount = 0
     Real(kind=DoubleReal) :: aLat
     Real(kind=DoubleReal) :: rMin
     Real(kind=DoubleReal) :: rMax
@@ -102,11 +78,8 @@ Module geom
   Use kinds
   Use strings
   Use constants
-  Use printModTypes
-  Use printMod
   Use matrix
   Use basicMaths
-  Use keysMod
   Use rng
   Use linearAlgebra
   Use coordFunctions
@@ -127,8 +100,6 @@ Module geom
   Public :: expandUnitCoords
   Public :: zeroForces
   Public :: makeNL
-  Public :: printCoords
-  Public :: printNLSummary
 
 
 
@@ -220,22 +191,22 @@ Module geom
     typeCellUpper = StrToUpper(typeCell)
     If(typeCellUpper(1:3).eq."FCC")Then
       coords(cKey)%points = 4
-      coords(cKey)%label(1) = "AL"
+      coords(cKey)%label(1) = "A"
       coords(cKey)%labelID(1) = 1
       coords(cKey)%unitCoords(1,1) = 0.0D0
       coords(cKey)%unitCoords(1,2) = 0.0D0
       coords(cKey)%unitCoords(1,3) = 0.0D0
-      coords(cKey)%label(2) = "AL"
+      coords(cKey)%label(2) = "B"
       coords(cKey)%labelID(2) = 2
       coords(cKey)%unitCoords(2,1) = 0.5D0
       coords(cKey)%unitCoords(2,2) = 0.5D0
       coords(cKey)%unitCoords(2,3) = 0.0D0
-      coords(cKey)%label(3) = "AL"
+      coords(cKey)%label(3) = "C"
       coords(cKey)%labelID(3) = 3
       coords(cKey)%unitCoords(3,1) = 0.5D0
       coords(cKey)%unitCoords(3,2) = 0.0D0
       coords(cKey)%unitCoords(3,3) = 0.5D0
-      coords(cKey)%label(4) = "AL"
+      coords(cKey)%label(4) = "D"
       coords(cKey)%unitCoords(4,1) = 0.0D0
       coords(cKey)%unitCoords(4,2) = 0.5D0
       coords(cKey)%unitCoords(4,3) = 0.5D0
@@ -289,42 +260,6 @@ Module geom
 ! Initialise data type
   End Subroutine expandUnitCoords
 
-
-
-  Subroutine printCoords(coords, cKey)
-! Print coords
-    Implicit None   ! Force declaration of all variables
-! Vars:  In/Out
-    Type(coordsType), Dimension(:) :: coords
-    Integer(kind=StandardInteger) :: cKey
-! Print summary
-    If(cKey.eq.0)Then
-      Do cKey=1,size(coords,1)
-        Call printCoordsSR(coords,cKey)
-      End Do
-    Else
-      Call printCoordsSR(coords,cKey)
-    End If
-  End Subroutine printCoords
-
-  Subroutine printCoordsSR(coords, cKey)
-! Print coords
-    Implicit None   ! Force declaration of all variables
-! Vars:  In/Out
-    Type(coordsType), Dimension(:) :: coords
-    Integer(kind=StandardInteger) :: cKey
-! Vars:  Private
-    Integer(kind=StandardInteger) :: i
-! Print coords
-    Do i=1,coords(cKey)%points
-      print "(I6,A4,A4,A1,I2,A2,E14.5,E14.5,E14.5)",i,"    ",coords(cKey)%label(i),"(",coords(cKey)%labelID(i),") ",&
-        coords(cKey)%coords(i,1),coords(cKey)%coords(i,2),coords(cKey)%coords(i,3)
-    End Do
-
-  End Subroutine printCoordsSR
-
-
-
   Subroutine zeroForces(coords, cKey)
 ! Init the unit coords data type
     Implicit None   ! Force declaration of all variables
@@ -354,11 +289,11 @@ Module geom
 ! e.g. if the rVerlet cutoff is 5, the alat must be greater than 5
 !
     Implicit None   ! Force declaration of all variables
-! Vars:  In/Out
+! In/Out
     Type(nlType), Dimension(:) :: nl
     Type(coordsType), Dimension(:)  :: coords
-    Real(kind=DoubleReal) :: rVerlet
-! Vars:  Private
+    Real(kind=DoubleReal) :: rVerlet, aLat
+! Private Variables
     Integer(kind=StandardInteger) :: cKey
     Integer(kind=StandardInteger) :: i, j, k
     Integer(kind=StandardInteger) :: l, m ,n
@@ -366,7 +301,6 @@ Module geom
     Integer(kind=StandardInteger) :: atomA, atomB, atomA_ID, atomB_ID
     Integer(kind=StandardInteger) :: coordLength, scW, scCount, scKey, maxAtomsPerSC
     Integer(kind=StandardInteger) :: scKeyA, scKeyB
-    Real(kind=DoubleReal) :: aLat
     Real(kind=DoubleReal) :: rVerletSQ, scAlat
     Integer(kind=StandardInteger) :: nlKey
     Integer(kind=StandardInteger) :: xKey, yKey, zKey
@@ -376,17 +310,15 @@ Module geom
     Real(kind=DoubleReal) :: xShift, yShift, zShift
     Integer(kind=StandardInteger), Dimension(1:3) :: shiftArr
     Integer(kind=StandardInteger) :: inCell
-! Vars:  Allocatable arrays
+! Allocatable arrays
     Integer(kind=StandardInteger), Allocatable, Dimension(:) :: scAtomCount     ! Number of atoms per sub cell
     Integer(kind=StandardInteger), Allocatable, Dimension(:,:) :: scKeyArr        ! array of scKey and x,y,z position
     Integer(kind=StandardInteger), Allocatable, Dimension(:,:,:) :: scCoordsI
     Real(kind=DoubleReal), Allocatable, Dimension(:,:,:) :: scCoordsR
-! Loop through configs
+
+
     Do cKey=1,size(coords,1)
       If((cKey.le.size(nl,1)).and.(coords(cKey)%points.gt.0))Then
-    print *,cKey,coords(cKey)%label(1),coords(cKey)%labelID(1)
-    print *,cKey,coords(cKey)%label(2),coords(cKey)%labelID(2)
-    print *,cKey,coords(cKey)%label(3),coords(cKey)%labelID(3)
 !----------------------------------------------
 ! Init config specific variables
     coordLength = coords(cKey)%points
@@ -408,8 +340,6 @@ Module geom
     scAlat = aLat/(1.0D0*scW)
     maxAtomsPerSC = 5*ceiling(coordLength/(1.0D0*scCount))
     nl(cKey)%scCount = scCount
-    nl(cKey)%scAlat = scAlat
-    nl(cKey)%maxAtomsPerSC = maxAtomsPerSC
     If(Allocated(scAtomCount))Then
       Deallocate(scAtomCount)
     End If
@@ -537,7 +467,6 @@ Module geom
                         nl(cKey)%atomA_Type(nlKey) = scCoordsI(scKeyA,atomA,2)  ! A type
                         nl(cKey)%atomB_Type(nlKey) = scCoordsI(scKeyB,atomB,2)  ! B type
                         nl(cKey)%inCell(nlKey) = inCell                     ! 1 if in cell, 0 if out of cell
-                        nl(cKey)%atomPairKey = DoubleKey(scCoordsI(scKeyA,atomA,2),scCoordsI(scKeyB,atomB,2))
                         ! Displacement/Direction
                         nl(cKey)%rD(nlKey) = rD
                         nl(cKey)%vecAB(nlKey,1) = xD/rD                ! Vector from B to A (x)
@@ -570,70 +499,14 @@ Module geom
       End Do
     End Do
     nl(cKey)%length = nlKey
+    print *,"NL Length: ",nl(cKey)%length," (",cKey,")"
 !----------------------------------------------
       End If
     End Do
-
   End Subroutine makeNL
 
 
 
-! -----------------------------------------------
-!        Print Summaries
-! -----------------------------------------------
-
-  Subroutine printNLSummary(nl, cKeyIn)
-! Print neighbour list summary
-    Implicit None ! Force declaration of all variables
-! Vars:  In/Out
-    Type(nlType), Dimension(:) :: nl
-    Integer(kind=StandardInteger), Optional :: cKeyIn
-! Vars:  Private
-    Integer(kind=StandardInteger) :: cKey
-! Optional Arguments
-    cKey = 0
-    If(Present(cKeyIn))Then
-      cKey = cKeyIn
-    End If
-! Start page
-    Call addLinePage("Neighbour List Summary","T")
-! Loop through configs
-    If(cKey.eq.0)Then
-      Do cKey=1,size(nl,1)
-        If(nl(cKey)%length.gt.0)Then
-          Call printNLSummary_Individual(nl, cKey)
-        End If
-      End Do
-    Else
-      If(nl(cKey)%length.gt.0)Then
-        Call printNLSummary_Individual(nl, cKey)
-      End If
-    End If
-    !Call printPage(newPage)
-  End Subroutine printNLSummary
-
-  Subroutine printNLSummary_Individual(nl, cKey)
-! Print neighbour list summary
-    Implicit None ! Force declaration of all variables
-! Vars:  In/Out
-    Type(nlType), Dimension(:) :: nl
-    Integer(kind=StandardInteger) :: cKey
-! Vars:  Private
-    Character(Len=64) :: tempLine
-! Output
-    Write(tempLine,*) "Config ",cKey
-    Call addLinePage(tempLine)
-    Write(tempLine,*) "R Verlet: ",nl(cKey)%rVerlet
-    Call addLinePage(tempLine)
-    Write(tempLine,*) "R Min: ",nl(cKey)%rMin
-    Call addLinePage(tempLine)
-    Write(tempLine,*) "R Max: ",nl(cKey)%rMax
-    Call addLinePage(tempLine)
-    Write(tempLine,*) "NL Length: ",nl(cKey)%length
-    Call addLinePage(tempLine)
-
-
-  End Subroutine printNLSummary_Individual
 
 
 

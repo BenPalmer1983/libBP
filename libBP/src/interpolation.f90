@@ -20,6 +20,7 @@ Module interpolation
   Public :: InterpPoints
   Public :: FullInterp
   Public :: FullInterpPoints
+  Public :: PointInterp3DArr
 ! Interfaces
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -29,14 +30,18 @@ Module interpolation
   Function InterpLagrange(x, points, derivativeIn) RESULT (output)
 ! Calculates y(x), y'(x) or y''(x) using Lagrange interpolation
     Implicit None  !Force declaration of all variables
-! Declare variables
+! Vars:  In
+    Real(kind=DoubleReal) :: x
     Real(kind=DoubleReal), Dimension( : , : ) :: points
+    Integer(kind=StandardInteger), Optional :: derivativeIn
+! Vars:  Out
+    Real(kind=DoubleReal) :: output
+! Vars:  Private
     Real(kind=DoubleReal), Dimension(1:size(points,1),1:2) :: pointsTemp
     Real(kind=DoubleReal), Dimension(1:size(points,1)) :: coefficients
     Integer(kind=StandardInteger) :: j, i, n, k, derivative
-    Integer(kind=StandardInteger), Optional :: derivativeIn
     Real(kind=DoubleReal) :: numerator, denominator, numeratorPart
-    Real(kind=DoubleReal) :: x, y, dy, output, xTemp, dyy
+    Real(kind=DoubleReal) :: y, dy, xTemp, dyy
 ! Initialise variables
     output = 0.0D0
 ! Handle optional argument
@@ -156,16 +161,18 @@ Module interpolation
 ! subsetSize - number of points to use in interpolation
 ! derivativeIn - calc y, y and y' or y. y' and y''
 ! inputSetStartIn - data points input starts at this number
+! inputSetLengthIn - length/number of input data points
     Implicit None  !Force declaration of all variables
-! Declare variables - In/Out
+! Vars:  In
     Real(kind=DoubleReal), Dimension(:,:) :: points
     Real(kind=DoubleReal) :: x
     Integer(kind=StandardInteger), optional :: derivativeIn, inputSetStartIn, inputSetLengthIn
     Integer(kind=StandardInteger) :: subsetSize, inputStart, inputLength, derivative
-    Real(kind=DoubleReal), Dimension(1:3) :: yArray
     Logical, optional :: verboseIn
     Logical :: verbose
-! Declare variables
+! Vars:  Out
+    Real(kind=DoubleReal), Dimension(1:3) :: yArray
+! Vars:  Private
     Real(kind=DoubleReal), Dimension(1:subsetSize,1:2) :: pointsInterp
     Real(kind=DoubleReal) :: xLower, xUpper
     Integer(kind=StandardInteger) :: i, j, dataSetSize, xPos
@@ -367,7 +374,6 @@ Module interpolation
     End Do
   End Function InterpPoints
 
-
   Function FullInterp(dataPoints) RESULT (coefficients)
 ! Ax = y
 ! Exact fit of (N-1) polynomial to N data points
@@ -422,5 +428,137 @@ Module interpolation
       dataPointsOut(i,2) = CalcPolynomial(coefficients,x)
     End Do
   End Function FullInterpPoints
+
+! ---------------------------------------------
+! 3D filled array
+! ---------------------------------------------
+
+  Function PointInterp3DArr(points,x,fN,subsetSize,derivativeIn) RESULT (yArray)
+! Data held in a 3D array, first column being the key for each set of data, each data set is full and the same length
+! points - array containing data points
+! x - point being interpolated around
+! fN - key for data array
+! subsetSize - number of points used in interpolation
+    Implicit None  !Force declaration of all variables
+! Vars:  In
+    Real(kind=DoubleReal), Dimension(:,:,:) :: points
+    Real(kind=DoubleReal) :: x
+    Integer(kind=StandardInteger) :: fN
+    Integer(kind=StandardInteger) :: subsetSize
+    Integer(kind=StandardInteger), optional :: derivativeIn
+! Vars:  Out
+    Real(kind=DoubleReal), Dimension(1:3) :: yArray
+! Vars:  Private
+    Real(kind=DoubleReal), Dimension(1:subsetSize,1:2) :: pointsInterp
+    Real(kind=DoubleReal) :: xLower, xUpper
+    Integer(kind=StandardInteger) :: i, dataSetSize, derivative
+    Integer(kind=StandardInteger) :: xPos, xPos_New_U, xPos_New_L
+    Integer(kind=StandardInteger) :: xPosUpper, xPosLower
+    Logical :: loopXPos
+! Optional arguments
+    derivative = 0
+    If(Present(derivativeIn))Then
+      derivative = derivativeIn
+    End If
+! Init vars
+    dataSetSize = Size(points,2)
+    xPos = 1
+    xLower = points(fN,1,1)
+    xUpper = points(fN,dataSetSize,1)
+! Estimate xPos
+    xPos = INT(Floor(((x - xLower) / (xUpper - xLower)) * 1.0D0 * dataSetSize))
+    xPos = CheckXpos(1,dataSetSize,xPos,3)
+    If(x.ge.(points(fN,xPos-1,1)).and.(x.le.points(fN,xPos+1,1)))Then
+! xPos is fine, use this one
+    Else
+! Search for better
+      loopXPos = .true.
+      xPos_New_L = xPos
+      xPos_New_U = xPos
+      i=0
+      Do While (loopXPos)
+        i = i + 1
+        If(i.gt.dataSetSize)Then
+          Exit
+        End If
+        xPos_New_L = xPos_New_L - 1
+        xPos_New_U = xPos_New_U + 1
+        xPos_New_L = CheckXpos(1,dataSetSize,xPos_New_L,3)
+        xPos_New_U = CheckXpos(1,dataSetSize,xPos_New_U,3)
+        If(x.ge.(points(fN,xPos_New_U-1,1)).and.(x.le.points(fN,xPos_New_U+1,1)))Then
+! xPos OK
+          xPos = xPos_New_U
+          Exit
+        End If
+        If(x.ge.(points(fN,xPos_New_U-1,1)).and.(x.le.points(fN,xPos_New_U+1,1)))Then
+! xPos OK
+          xPos = xPos_New_L
+          Exit
+        End If
+      End Do
+    End If
+! get upper/lower
+    Call xPosUpperLower(xPos, subsetSize, xPosUpper, xPosLower)
+! Make set of points to use for interpolation
+    Do i=1,subsetSize
+      pointsInterp(i,1) = points(fN,xPosLower-1+i,1)
+      pointsInterp(i,2) = points(fN,xPosLower-1+i,2)
+    End Do
+! Store interpolation results
+    If(derivative.ge.0)Then
+      yArray(1) = InterpLagrange(x, pointsInterp)
+    End If
+    If(derivative.ge.1)Then
+      yArray(2) = InterpLagrange(x, pointsInterp, 1)
+    End If
+    If(derivative.ge.2)Then
+      yArray(3) = InterpLagrange(x, pointsInterp, 2)
+    End If
+  End Function PointInterp3DArr
+
+  Function CheckXpos(xStart, xEnd, xPos, subsetSize) Result (xPosNew)
+! Check the xPos and it's surrounding set is in range of the full data set
+    Implicit None  !Force declaration of all variables
+! Vars:  In
+    Integer(kind=StandardInteger) :: xStart, xEnd, xPos, subsetSize
+! Vars:  Out
+    Integer(kind=StandardInteger) :: xPosNew
+! Vars:  Private
+    !Real(kind=DoubleReal) :: halfSubset
+    Integer(kind=StandardInteger) :: xPosLower, xPosUpper
+    !halfSubset = 0.5D0*(subsetSize-1)
+    !xLower = xPos - floor(halfSubset)
+    !xUpper = xPos + ceiling(halfSubset)
+    Call xPosUpperLower(xPos, subsetSize, xPosUpper, xPosLower)
+    xPosNew = xPos
+    If(xPosLower.lt.xStart)Then
+      xPosNew = xPosNew + xStart - xPosLower
+    ElseIf(xPosUpper.gt.xEnd)Then
+      xPosNew = xPosNew + xEnd - xPosUpper
+    End If
+  End Function CheckXpos
+
+!-------------------------------------------------------------------------------
+! Subroutines
+!-------------------------------------------------------------------------------
+
+  Subroutine xPosUpperLower(xPos, subsetSize, xPosUpper, xPosLower)
+! Get upper and lower values of subset about xpos
+    Implicit None  !Force declaration of all variables
+! Vars:  In/Out
+    Integer(kind=StandardInteger) :: xPos, subsetSize, xPosUpper, xPosLower
+! Vars:  Private
+    Real(kind=DoubleReal) :: halfSubset
+! Calculate
+    halfSubset = 0.5D0*(subsetSize-1)
+    xPosUpper = xPos + ceiling(halfSubset)
+    xPosLower = xPos - floor(halfSubset)
+  End Subroutine xPosUpperLower
+
+
+
+
+
+
 
 End Module interpolation
