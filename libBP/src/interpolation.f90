@@ -16,6 +16,9 @@ Module interpolation
 ! --variables--!
 ! --functions--!
   Public :: InterpLagrange
+  Public :: Lagrange_FX
+  Public :: Lagrange_dFX
+  Public :: Lagrange_nFX
   Public :: PointInterp
   Public :: InterpPoints
   Public :: FullInterp
@@ -37,11 +40,7 @@ Module interpolation
 ! Vars:  Out
     Real(kind=DoubleReal) :: output
 ! Vars:  Private
-    Real(kind=DoubleReal), Dimension(1:size(points,1),1:2) :: pointsTemp
-    Real(kind=DoubleReal), Dimension(1:size(points,1)) :: coefficients
-    Integer(kind=StandardInteger) :: j, i, n, k, derivative
-    Real(kind=DoubleReal) :: numerator, denominator, numeratorPart
-    Real(kind=DoubleReal) :: y, dy, xTemp, dyy
+    Integer(kind=StandardInteger) :: derivative
 ! Initialise variables
     output = 0.0D0
 ! Handle optional argument
@@ -50,28 +49,60 @@ Module interpolation
       derivative = derivativeIn
     End If
 ! y(x)
-    If(derivative.eq.0)Then
+    output = Lagrange_nFX(x, points, derivative)
+  End Function InterpLagrange
+
+
+  Function Lagrange_FX(x, points) RESULT (output)
+! Calculates F(x) using Lagrange interpolation
+    Implicit None  !Force declaration of all variables
+! Vars:  In
+    Real(kind=DoubleReal) :: x
+    Real(kind=DoubleReal), Dimension( : , : ) :: points
+! Vars:  Out
+    Real(kind=DoubleReal) :: output
+! Vars:  Private
+    Real(kind=DoubleReal), Dimension(1:size(points,1)) :: coefficients
+    Integer(kind=StandardInteger) :: n, k
+    Real(kind=DoubleReal) :: numerator, denominator
+    Real(kind=DoubleReal) :: y
+! Initialise variables
+    output = 0.0D0
 ! Make coefficients
-      Do n=1,size(points,1)
-        numerator = 1.0D0
-        denominator = 1.0D0
-        Do k=1,size(points,1)
-          If(k.ne.n)Then
-            numerator=numerator*(x-points(k,1))
-            denominator=denominator*(points(n,1)-points(k,1))
-          End If
-        End Do
-        coefficients(n)=1.0D0*(numerator/denominator)
+    Do n=1,size(points,1)
+      numerator = 1.0D0
+      denominator = 1.0D0
+      Do k=1,size(points,1)
+        If(k.ne.n)Then
+          numerator=numerator*(x-points(k,1))
+          denominator=denominator*(points(n,1)-points(k,1))
+        End If
       End Do
+      coefficients(n)=1.0D0*(numerator/denominator)
+    End Do
 ! Calculate y
-      y = 0.0D0
-      Do n=1,size(points,1)
-        y=y+points(n,2)*coefficients(n)
-      End Do
-      output = y
-    End If
-! y'(x)
-    If(derivative.eq.1)Then
+    y = 0.0D0
+    Do n=1,size(points,1)
+      y=y+points(n,2)*coefficients(n)
+    End Do
+    output = y
+  End Function Lagrange_FX
+
+  Function Lagrange_dFX(x, points) RESULT (output)
+! Calculates F'(x) using Lagrange interpolation
+    Implicit None  !Force declaration of all variables
+! Vars:  In
+    Real(kind=DoubleReal) :: x
+    Real(kind=DoubleReal), Dimension( : , : ) :: points
+! Vars:  Out
+    Real(kind=DoubleReal) :: output
+! Vars:  Private
+    Real(kind=DoubleReal), Dimension(1:size(points,1)) :: coefficients
+    Integer(kind=StandardInteger) :: i, n, k
+    Real(kind=DoubleReal) :: numerator, denominator, numeratorPart
+    Real(kind=DoubleReal) :: dy
+! Initialise variables
+    output = 0.0D0
       Do n=1,size(points,1)
         numerator = 0.0D0
         denominator = 1.0D0
@@ -95,64 +126,42 @@ Module interpolation
         dy = dy + points(n,2)*coefficients(n)
       End Do
       output = dy
+  End Function Lagrange_dFX
+
+  Function Lagrange_nFX(x, points, n) RESULT (output)
+! Calculates F^n(x) using Lagrange interpolation (nth derivaive)
+    Implicit None  !Force declaration of all variables
+! Vars:  In
+    Real(kind=DoubleReal) :: x
+    Real(kind=DoubleReal), Dimension( : , : ) :: points
+    Integer(kind=StandardInteger) :: n
+! Vars:  Out
+    Real(kind=DoubleReal) :: output
+! Vars:  Private
+    Integer(kind=StandardInteger) :: i, j
+    Real(kind=DoubleReal), Dimension(1:size(points,1),1:2) :: pointsTempA
+    Real(kind=DoubleReal), Dimension(1:size(points,1),1:2) :: pointsTempB
+! F(x)
+    If(n.le.0)Then
+      output = Lagrange_FX(x, points)
     End If
-! y''(x)
-    If(derivative.eq.2)Then
-! Could use recursive functions for higher orders, but y''(x) high enough for now
-! Calculate y'(x) for each x input
-      Do j = 1,size(points,1)
-        xTemp = points(j,1)
-        Do n=1,size(points,1)
-          numerator = 0.0D0
-          denominator = 1.0D0
-          Do k=1,size(points,1)
-            If(k.ne.n)Then
-              denominator=denominator*(points(n,1)-points(k,1))
-              numeratorPart = 1.0D0
-              Do i=1,size(points,1)
-                If(i.ne.n.and.i.ne.k)Then
-                  numeratorPart=numeratorPart*(xTemp-points(i,1))
-                End If
-              End Do
-              numerator=numerator+numeratorPart
-            End If
-          End Do
-          coefficients(n)=1.0D0*(numerator/denominator)
-        End Do
-! Calculate dy
-        dy = 0.0D0
-        Do n=1,size(points,1)
-          dy = dy + points(n,2)*coefficients(n)
-        End Do
-        pointsTemp(j,1) = xTemp
-        pointsTemp(j,2) = dy
-      End Do
-! Use the x, y'(x) points to interpolate y''(x)
-      Do n=1,size(points,1)
-        numerator = 0.0D0
-        denominator = 1.0D0
-        Do k=1,size(points,1)
-          If(k.ne.n)Then
-            denominator=denominator*(pointsTemp(n,1)-pointsTemp(k,1))
-            numeratorPart = 1.0D0
-            Do i=1,size(pointsTemp,1)
-              If(i.ne.n.and.i.ne.k)Then
-                numeratorPart=numeratorPart*(x-pointsTemp(i,1))
-              End If
-            End Do
-            numerator=numerator+numeratorPart
-          End If
-        End Do
-        coefficients(n)=1.0D0*(numerator/denominator)
-      End Do
-! Calculate dy
-      dyy = 0.0D0
-      Do n=1,size(points,1)
-        dyy = dyy + pointsTemp(n,2)*coefficients(n)
-      End Do
-      output = dyy
+! F'(x)
+    If(n.eq.1)Then
+      output = Lagrange_dFX(x, points)
     End If
-  End Function InterpLagrange
+! Fn(x)
+    If(n.ge.2)Then
+      pointsTempA = points
+      Do i=2,n
+        Do j=1,size(pointsTempA,1)
+          pointsTempB(j,1) = pointsTempA(j,1)
+          pointsTempB(j,2) = Lagrange_dFX(points(j,1), pointsTempA)
+        End Do
+        pointsTempA = pointsTempB
+      End Do
+      output = Lagrange_dFX(x, pointsTempA)
+    End If
+  End Function Lagrange_nFX
 
   Function PointInterp(points,x,subsetSize,derivativeIn,inputSetStartIn,inputSetLengthIn,verboseIn) RESULT (yArray)
 ! Takes large set of data points, finds region of points around the input "x", and interps with lagrange
@@ -297,13 +306,13 @@ Module interpolation
     End If
 ! Store interpolation results
     If(derivative.ge.0)Then
-      yArray(1) = InterpLagrange(x, pointsInterp)
+      yArray(1) = Lagrange_FX(x, pointsInterp)
     End If
     If(derivative.ge.1)Then
-      yArray(2) = InterpLagrange(x, pointsInterp, 1)
+      yArray(2) = Lagrange_dFX(x, pointsInterp)
     End If
     If(derivative.ge.2)Then
-      yArray(3) = InterpLagrange(x, pointsInterp, 2)
+      yArray(3) = Lagrange_nFX(x, pointsInterp, 2)
     End If
   End Function PointInterp
 
@@ -499,6 +508,13 @@ Module interpolation
     End If
 ! get upper/lower
     Call xPosUpperLower(xPos, subsetSize, xPosUpper, xPosLower)
+! Failsafe
+    If(xPosLower.lt.1)Then
+      xPosLower = 1
+    End If
+    If((xPosLower+subsetSize).gt.dataSetSize)Then
+      xPosLower = dataSetSize-subsetSize+1
+    End If
 ! Make set of points to use for interpolation
     Do i=1,subsetSize
       pointsInterp(i,1) = points(fN,xPosLower-1+i,1)

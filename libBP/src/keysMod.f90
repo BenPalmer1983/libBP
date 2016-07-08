@@ -16,7 +16,6 @@ Module keysMod
 ! Ben Palmer, University of Birmingham
 ! --------------------------------------------------------------!
   Use kinds
-  Use constants
 ! Force declaration of all variables
   Implicit None
 ! Make private

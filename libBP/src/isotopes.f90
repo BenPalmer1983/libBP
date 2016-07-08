@@ -13,14 +13,26 @@
 Module isotopesTypes
 ! Setup Modules
   Use kinds
+! Force declaration of all variables
+  Implicit None
+! Vars:  Module Parameters
+  Integer(kind=StandardInteger), Parameter :: p_maxIsotopes = 4000
+  Integer(kind=StandardInteger), Parameter :: p_maxElements = 150
+! Make private
+  Private
+! Public Variables and Parameters
+  Public :: p_maxIsotopes, p_maxElements
+! Public derived types
+  Public :: isotopesObj, isotopeObj, elementsObj, elementObj
+
   Type :: isotopesObj  ! Many
     Integer(kind=StandardInteger) :: isotopeCount
-    Character(Len=3), Dimension(1:4000) :: atomicSymbol
-    Integer(kind=StandardInteger), Dimension(1:4000) :: atomicNumber
-    Integer(kind=StandardInteger), Dimension(1:4000) :: massNumber
-    Real(kind=DoubleReal), Dimension(1:4000) :: isotopicComposition
-    Real(kind=DoubleReal), Dimension(1:4000) :: relativeAtomicMass    ! Mass of this isotope
-    Real(kind=DoubleReal), Dimension(1:4000) :: standardAtomicMass    ! Mass of natuarlly occuring element
+    Character(Len=3), Dimension(1:p_maxIsotopes) :: atomicSymbol
+    Integer(kind=StandardInteger), Dimension(1:p_maxIsotopes) :: atomicNumber
+    Integer(kind=StandardInteger), Dimension(1:p_maxIsotopes) :: massNumber
+    Real(kind=DoubleReal), Dimension(1:p_maxIsotopes) :: isotopicComposition
+    Real(kind=DoubleReal), Dimension(1:p_maxIsotopes) :: relativeAtomicMass    ! Mass of this isotope
+    Real(kind=DoubleReal), Dimension(1:p_maxIsotopes) :: standardAtomicMass    ! Mass of natuarlly occuring element
     Integer(kind=StandardInteger), Dimension(1:57830) :: keyTable = 0
   End Type isotopesObj
 
@@ -33,6 +45,27 @@ Module isotopesTypes
     Real(kind=DoubleReal) :: standardAtomicMass    ! Mass of natuarlly occuring element
   End Type isotopeObj
 
+  Type :: elementsObj  ! Many
+    Integer(kind=StandardInteger) :: elementCount
+    Integer(kind=StandardInteger), Dimension(1:p_maxElements) :: atomicNumber
+    Character(Len=3), Dimension(1:p_maxElements) :: atomicSymbol
+    Character(Len=32), Dimension(1:p_maxElements) :: elementName
+    Integer(kind=StandardInteger), Dimension(1:p_maxElements) :: group
+    Integer(kind=StandardInteger), Dimension(1:p_maxElements) :: period
+    Real(kind=DoubleReal), Dimension(1:p_maxElements) :: standardAtomicMass
+    Real(kind=DoubleReal), Dimension(1:p_maxElements) :: density
+  End Type elementsObj
+
+  Type :: elementObj  ! Singular
+    Integer(kind=StandardInteger) :: atomicNumber
+    Character(Len=3) :: atomicSymbol
+    Character(Len=32) :: elementName
+    Integer(kind=StandardInteger) :: group
+    Integer(kind=StandardInteger) :: period
+    Real(kind=DoubleReal) :: standardAtomicMass
+    Real(kind=DoubleReal) :: density
+  End Type elementObj
+
 End Module isotopesTypes
 
 
@@ -41,6 +74,7 @@ Module isotopes
 ! Ben Palmer, University of Birmingham
 ! --------------------------------------------------------------!
   Use kinds
+  Use strings
   Use constants
   Use keysMod
   Use isotopesTypes
@@ -52,6 +86,8 @@ Module isotopes
   Public :: loadIsotopes
   Public :: printIsotopeDetails
   Public :: SearchIsotopes
+  Public :: loadElements
+  Public :: SearchElements
 ! Interfaces
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -135,6 +171,51 @@ Module isotopes
   End Function SearchIsotopes
 
 
+  Subroutine loadElements(elementsList)
+! Calculates unique key for two keys (order of keys NOT important)
+! (A,B) = (B,A)
+    Implicit None ! Force declaration of all variables
+! Vars:  In/Out
+    Type(elementsObj) :: elementsList
+! Vars:  Private
+! Load data
+    Call loadElementsData(elementsList)
+  End Subroutine loadElements
+
+  Function SearchElements(elementSymbol, elementsList) Result (elementDetails)
+! Search isotope data
+    Implicit None ! Force declaration of all variables
+! Vars:  In
+    Character(*) :: elementSymbol
+    Type(elementsObj) :: elementsList
+! Vars:  Out
+    Type(elementObj) :: elementDetails
+! Vars: Private
+    Character(Len=3) :: strIn, strCheck
+    Integer(kind=StandardInteger) :: i, eN
+! Input
+    strIn = "   "
+    strIn = StrToUpper(elementSymbol)
+! Loop through list
+    Do i=1,p_maxElements
+      strCheck = StrToUpper(elementsList%atomicSymbol(i))
+      If(StrMatch(strIn,strCheck))Then
+        eN = i
+        Exit
+      End If
+    End Do
+! save details
+    If(eN.lt.150)Then
+      elementDetails%atomicNumber = elementsList%atomicNumber(eN)
+      elementDetails%atomicSymbol = elementsList%atomicSymbol(eN)
+      elementDetails%elementName = elementsList%elementName(eN)
+      elementDetails%group = elementsList%group(eN)
+      elementDetails%period = elementsList%period(eN)
+      elementDetails%standardAtomicMass = elementsList%standardAtomicMass(eN)
+      elementDetails%density = elementsList%density(eN)
+    End If
+  End Function SearchElements
+
 
 !---------------------------------------------------------------------------------------------------------------------------------------
 ! Isotope Data
@@ -147,7 +228,6 @@ Module isotopes
   ! Vars:  In/Out
       Type(isotopesObj) :: isotopesList
   ! Vars:  Private
-
       isotopesList%isotopeCount = 3180
       isotopesList%atomicSymbol(1) = "H"
       isotopesList%atomicNumber(1) = 1
@@ -19229,10 +19309,846 @@ Module isotopes
       isotopesList%isotopicComposition(3180) = 0.0
       isotopesList%relativeAtomicMass(3180) = 294
       isotopesList%standardAtomicMass(3180) = 294
+  End Subroutine loadIsotopesData
 
+!---------------------------------------------------------------------------------------------------------------------------------------
+! Element Data
+!---------------------------------------------------------------------------------------------------------------------------------------
 
-End Subroutine loadIsotopesData
-
+  Subroutine loadElementsData(elementsList)
+  ! Loads element data
+      Implicit None ! Force declaration of all variables
+  ! Vars:  In/Out
+      Type(elementsObj) :: elementsList
+  ! Vars:  Private
+      elementsList%atomicNumber(1) = 1
+      elementsList%atomicSymbol(1) = "H"
+      elementsList%elementName(1) = "Hydrogen"
+      elementsList%group(1) = 1
+      elementsList%period(1) = 1
+      elementsList%standardAtomicMass(1) = 1.008
+      elementsList%density(1) = 0.00008988
+      elementsList%atomicNumber(2) = 2
+      elementsList%atomicSymbol(2) = "He"
+      elementsList%elementName(2) = "Helium"
+      elementsList%group(2) = 18
+      elementsList%period(2) = 1
+      elementsList%standardAtomicMass(2) = 4.002602
+      elementsList%density(2) = 0.0001785
+      elementsList%atomicNumber(3) = 3
+      elementsList%atomicSymbol(3) = "Li"
+      elementsList%elementName(3) = "Lithium"
+      elementsList%group(3) = 1
+      elementsList%period(3) = 2
+      elementsList%standardAtomicMass(3) = 6.94
+      elementsList%density(3) = 0.534
+      elementsList%atomicNumber(4) = 4
+      elementsList%atomicSymbol(4) = "Be"
+      elementsList%elementName(4) = "Beryllium"
+      elementsList%group(4) = 2
+      elementsList%period(4) = 2
+      elementsList%standardAtomicMass(4) = 9.0121831
+      elementsList%density(4) = 1.85
+      elementsList%atomicNumber(5) = 5
+      elementsList%atomicSymbol(5) = "B"
+      elementsList%elementName(5) = "Boron"
+      elementsList%group(5) = 13
+      elementsList%period(5) = 2
+      elementsList%standardAtomicMass(5) = 10.81
+      elementsList%density(5) = 2.34
+      elementsList%atomicNumber(6) = 6
+      elementsList%atomicSymbol(6) = "C"
+      elementsList%elementName(6) = "Carbon"
+      elementsList%group(6) = 14
+      elementsList%period(6) = 2
+      elementsList%standardAtomicMass(6) = 12.011
+      elementsList%density(6) = 2.267
+      elementsList%atomicNumber(7) = 7
+      elementsList%atomicSymbol(7) = "N"
+      elementsList%elementName(7) = "Nitrogen"
+      elementsList%group(7) = 15
+      elementsList%period(7) = 2
+      elementsList%standardAtomicMass(7) = 14.007
+      elementsList%density(7) = 0.0012506
+      elementsList%atomicNumber(8) = 8
+      elementsList%atomicSymbol(8) = "O"
+      elementsList%elementName(8) = "Oxygen"
+      elementsList%group(8) = 16
+      elementsList%period(8) = 2
+      elementsList%standardAtomicMass(8) = 15.999
+      elementsList%density(8) = 0.001429
+      elementsList%atomicNumber(9) = 9
+      elementsList%atomicSymbol(9) = "F"
+      elementsList%elementName(9) = "Fluorine"
+      elementsList%group(9) = 17
+      elementsList%period(9) = 2
+      elementsList%standardAtomicMass(9) = 18.998403163
+      elementsList%density(9) = 0.001696
+      elementsList%atomicNumber(10) = 10
+      elementsList%atomicSymbol(10) = "Ne"
+      elementsList%elementName(10) = "Neon"
+      elementsList%group(10) = 18
+      elementsList%period(10) = 2
+      elementsList%standardAtomicMass(10) = 20.1797
+      elementsList%density(10) = 0.0008999
+      elementsList%atomicNumber(11) = 11
+      elementsList%atomicSymbol(11) = "Na"
+      elementsList%elementName(11) = "Sodium"
+      elementsList%group(11) = 1
+      elementsList%period(11) = 3
+      elementsList%standardAtomicMass(11) = 22.98976928
+      elementsList%density(11) = 0.971
+      elementsList%atomicNumber(12) = 12
+      elementsList%atomicSymbol(12) = "Mg"
+      elementsList%elementName(12) = "Magnesium"
+      elementsList%group(12) = 2
+      elementsList%period(12) = 3
+      elementsList%standardAtomicMass(12) = 24.305
+      elementsList%density(12) = 1.738
+      elementsList%atomicNumber(13) = 13
+      elementsList%atomicSymbol(13) = "Al"
+      elementsList%elementName(13) = "Aluminium"
+      elementsList%group(13) = 13
+      elementsList%period(13) = 3
+      elementsList%standardAtomicMass(13) = 26.9815385
+      elementsList%density(13) = 2.698
+      elementsList%atomicNumber(14) = 14
+      elementsList%atomicSymbol(14) = "Si"
+      elementsList%elementName(14) = "Silicon"
+      elementsList%group(14) = 14
+      elementsList%period(14) = 3
+      elementsList%standardAtomicMass(14) = 28.085
+      elementsList%density(14) = 2.3296
+      elementsList%atomicNumber(15) = 15
+      elementsList%atomicSymbol(15) = "P"
+      elementsList%elementName(15) = "Phosphorus"
+      elementsList%group(15) = 15
+      elementsList%period(15) = 3
+      elementsList%standardAtomicMass(15) = 30.973761998
+      elementsList%density(15) = 1.82
+      elementsList%atomicNumber(16) = 16
+      elementsList%atomicSymbol(16) = "S"
+      elementsList%elementName(16) = "Sulfur"
+      elementsList%group(16) = 16
+      elementsList%period(16) = 3
+      elementsList%standardAtomicMass(16) = 32.06
+      elementsList%density(16) = 2.067
+      elementsList%atomicNumber(17) = 17
+      elementsList%atomicSymbol(17) = "Cl"
+      elementsList%elementName(17) = "Chlorine"
+      elementsList%group(17) = 17
+      elementsList%period(17) = 3
+      elementsList%standardAtomicMass(17) = 35.45
+      elementsList%density(17) = 0.003214
+      elementsList%atomicNumber(18) = 18
+      elementsList%atomicSymbol(18) = "Ar"
+      elementsList%elementName(18) = "Argon"
+      elementsList%group(18) = 18
+      elementsList%period(18) = 3
+      elementsList%standardAtomicMass(18) = 39.948
+      elementsList%density(18) = 0.0017837
+      elementsList%atomicNumber(19) = 19
+      elementsList%atomicSymbol(19) = "K"
+      elementsList%elementName(19) = "Potassium"
+      elementsList%group(19) = 1
+      elementsList%period(19) = 4
+      elementsList%standardAtomicMass(19) = 39.0983
+      elementsList%density(19) = 0.862
+      elementsList%atomicNumber(20) = 20
+      elementsList%atomicSymbol(20) = "Ca"
+      elementsList%elementName(20) = "Calcium"
+      elementsList%group(20) = 2
+      elementsList%period(20) = 4
+      elementsList%standardAtomicMass(20) = 40.078
+      elementsList%density(20) = 1.54
+      elementsList%atomicNumber(21) = 21
+      elementsList%atomicSymbol(21) = "Sc"
+      elementsList%elementName(21) = "Scandium"
+      elementsList%group(21) = 3
+      elementsList%period(21) = 4
+      elementsList%standardAtomicMass(21) = 44.955908
+      elementsList%density(21) = 2.989
+      elementsList%atomicNumber(22) = 22
+      elementsList%atomicSymbol(22) = "Ti"
+      elementsList%elementName(22) = "Titanium"
+      elementsList%group(22) = 4
+      elementsList%period(22) = 4
+      elementsList%standardAtomicMass(22) = 47.867
+      elementsList%density(22) = 4.54
+      elementsList%atomicNumber(23) = 23
+      elementsList%atomicSymbol(23) = "V"
+      elementsList%elementName(23) = "Vanadium"
+      elementsList%group(23) = 5
+      elementsList%period(23) = 4
+      elementsList%standardAtomicMass(23) = 50.9415
+      elementsList%density(23) = 6.11
+      elementsList%atomicNumber(24) = 24
+      elementsList%atomicSymbol(24) = "Cr"
+      elementsList%elementName(24) = "Chromium"
+      elementsList%group(24) = 6
+      elementsList%period(24) = 4
+      elementsList%standardAtomicMass(24) = 51.9961
+      elementsList%density(24) = 7.15
+      elementsList%atomicNumber(25) = 25
+      elementsList%atomicSymbol(25) = "Mn"
+      elementsList%elementName(25) = "Manganese"
+      elementsList%group(25) = 7
+      elementsList%period(25) = 4
+      elementsList%standardAtomicMass(25) = 54.938044
+      elementsList%density(25) = 7.44
+      elementsList%atomicNumber(26) = 26
+      elementsList%atomicSymbol(26) = "Fe"
+      elementsList%elementName(26) = "Iron"
+      elementsList%group(26) = 8
+      elementsList%period(26) = 4
+      elementsList%standardAtomicMass(26) = 55.845
+      elementsList%density(26) = 7.874
+      elementsList%atomicNumber(27) = 27
+      elementsList%atomicSymbol(27) = "Co"
+      elementsList%elementName(27) = "Cobalt"
+      elementsList%group(27) = 9
+      elementsList%period(27) = 4
+      elementsList%standardAtomicMass(27) = 58.933194
+      elementsList%density(27) = 8.86
+      elementsList%atomicNumber(28) = 28
+      elementsList%atomicSymbol(28) = "Ni"
+      elementsList%elementName(28) = "Nickel"
+      elementsList%group(28) = 10
+      elementsList%period(28) = 4
+      elementsList%standardAtomicMass(28) = 58.6934
+      elementsList%density(28) = 8.912
+      elementsList%atomicNumber(29) = 29
+      elementsList%atomicSymbol(29) = "Cu"
+      elementsList%elementName(29) = "Copper"
+      elementsList%group(29) = 11
+      elementsList%period(29) = 4
+      elementsList%standardAtomicMass(29) = 63.546
+      elementsList%density(29) = 8.96
+      elementsList%atomicNumber(30) = 30
+      elementsList%atomicSymbol(30) = "Zn"
+      elementsList%elementName(30) = "Zinc"
+      elementsList%group(30) = 12
+      elementsList%period(30) = 4
+      elementsList%standardAtomicMass(30) = 65.38
+      elementsList%density(30) = 7.134
+      elementsList%atomicNumber(31) = 31
+      elementsList%atomicSymbol(31) = "Ga"
+      elementsList%elementName(31) = "Gallium"
+      elementsList%group(31) = 13
+      elementsList%period(31) = 4
+      elementsList%standardAtomicMass(31) = 69.723
+      elementsList%density(31) = 5.907
+      elementsList%atomicNumber(32) = 32
+      elementsList%atomicSymbol(32) = "Ge"
+      elementsList%elementName(32) = "Germanium"
+      elementsList%group(32) = 14
+      elementsList%period(32) = 4
+      elementsList%standardAtomicMass(32) = 72.63
+      elementsList%density(32) = 5.323
+      elementsList%atomicNumber(33) = 33
+      elementsList%atomicSymbol(33) = "As"
+      elementsList%elementName(33) = "Arsenic"
+      elementsList%group(33) = 15
+      elementsList%period(33) = 4
+      elementsList%standardAtomicMass(33) = 74.921595
+      elementsList%density(33) = 5.776
+      elementsList%atomicNumber(34) = 34
+      elementsList%atomicSymbol(34) = "Se"
+      elementsList%elementName(34) = "Selenium"
+      elementsList%group(34) = 16
+      elementsList%period(34) = 4
+      elementsList%standardAtomicMass(34) = 78.971
+      elementsList%density(34) = 4.809
+      elementsList%atomicNumber(35) = 35
+      elementsList%atomicSymbol(35) = "Br"
+      elementsList%elementName(35) = "Bromine"
+      elementsList%group(35) = 17
+      elementsList%period(35) = 4
+      elementsList%standardAtomicMass(35) = 79.904
+      elementsList%density(35) = 3.122
+      elementsList%atomicNumber(36) = 36
+      elementsList%atomicSymbol(36) = "Kr"
+      elementsList%elementName(36) = "Krypton"
+      elementsList%group(36) = 18
+      elementsList%period(36) = 4
+      elementsList%standardAtomicMass(36) = 83.798
+      elementsList%density(36) = 0.003733
+      elementsList%atomicNumber(37) = 37
+      elementsList%atomicSymbol(37) = "Rb"
+      elementsList%elementName(37) = "Rubidium"
+      elementsList%group(37) = 1
+      elementsList%period(37) = 5
+      elementsList%standardAtomicMass(37) = 85.4678
+      elementsList%density(37) = 1.532
+      elementsList%atomicNumber(38) = 38
+      elementsList%atomicSymbol(38) = "Sr"
+      elementsList%elementName(38) = "Strontium"
+      elementsList%group(38) = 2
+      elementsList%period(38) = 5
+      elementsList%standardAtomicMass(38) = 87.62
+      elementsList%density(38) = 2.64
+      elementsList%atomicNumber(39) = 39
+      elementsList%atomicSymbol(39) = "Y"
+      elementsList%elementName(39) = "Yttrium"
+      elementsList%group(39) = 3
+      elementsList%period(39) = 5
+      elementsList%standardAtomicMass(39) = 88.90584
+      elementsList%density(39) = 4.469
+      elementsList%atomicNumber(40) = 40
+      elementsList%atomicSymbol(40) = "Zr"
+      elementsList%elementName(40) = "Zirconium"
+      elementsList%group(40) = 4
+      elementsList%period(40) = 5
+      elementsList%standardAtomicMass(40) = 91.224
+      elementsList%density(40) = 6.506
+      elementsList%atomicNumber(41) = 41
+      elementsList%atomicSymbol(41) = "Nb"
+      elementsList%elementName(41) = "Niobium"
+      elementsList%group(41) = 5
+      elementsList%period(41) = 5
+      elementsList%standardAtomicMass(41) = 92.90637
+      elementsList%density(41) = 8.57
+      elementsList%atomicNumber(42) = 42
+      elementsList%atomicSymbol(42) = "Mo"
+      elementsList%elementName(42) = "Molybdenum"
+      elementsList%group(42) = 6
+      elementsList%period(42) = 5
+      elementsList%standardAtomicMass(42) = 95.95
+      elementsList%density(42) = 10.22
+      elementsList%atomicNumber(43) = 43
+      elementsList%atomicSymbol(43) = "Tc"
+      elementsList%elementName(43) = "Technetium"
+      elementsList%group(43) = 7
+      elementsList%period(43) = 5
+      elementsList%standardAtomicMass(43) = 98
+      elementsList%density(43) = 11.5
+      elementsList%atomicNumber(44) = 44
+      elementsList%atomicSymbol(44) = "Ru"
+      elementsList%elementName(44) = "Ruthenium"
+      elementsList%group(44) = 8
+      elementsList%period(44) = 5
+      elementsList%standardAtomicMass(44) = 101.07
+      elementsList%density(44) = 12.37
+      elementsList%atomicNumber(45) = 45
+      elementsList%atomicSymbol(45) = "Rh"
+      elementsList%elementName(45) = "Rhodium"
+      elementsList%group(45) = 9
+      elementsList%period(45) = 5
+      elementsList%standardAtomicMass(45) = 102.9055
+      elementsList%density(45) = 12.41
+      elementsList%atomicNumber(46) = 46
+      elementsList%atomicSymbol(46) = "Pd"
+      elementsList%elementName(46) = "Palladium"
+      elementsList%group(46) = 10
+      elementsList%period(46) = 5
+      elementsList%standardAtomicMass(46) = 106.42
+      elementsList%density(46) = 12.02
+      elementsList%atomicNumber(47) = 47
+      elementsList%atomicSymbol(47) = "Ag"
+      elementsList%elementName(47) = "Silver"
+      elementsList%group(47) = 11
+      elementsList%period(47) = 5
+      elementsList%standardAtomicMass(47) = 107.8682
+      elementsList%density(47) = 10.501
+      elementsList%atomicNumber(48) = 48
+      elementsList%atomicSymbol(48) = "Cd"
+      elementsList%elementName(48) = "Cadmium"
+      elementsList%group(48) = 12
+      elementsList%period(48) = 5
+      elementsList%standardAtomicMass(48) = 112.414
+      elementsList%density(48) = 8.69
+      elementsList%atomicNumber(49) = 49
+      elementsList%atomicSymbol(49) = "In"
+      elementsList%elementName(49) = "Indium"
+      elementsList%group(49) = 13
+      elementsList%period(49) = 5
+      elementsList%standardAtomicMass(49) = 114.818
+      elementsList%density(49) = 7.31
+      elementsList%atomicNumber(50) = 50
+      elementsList%atomicSymbol(50) = "Sn"
+      elementsList%elementName(50) = "Tin"
+      elementsList%group(50) = 14
+      elementsList%period(50) = 5
+      elementsList%standardAtomicMass(50) = 118.71
+      elementsList%density(50) = 7.287
+      elementsList%atomicNumber(51) = 51
+      elementsList%atomicSymbol(51) = "Sb"
+      elementsList%elementName(51) = "Antimony"
+      elementsList%group(51) = 15
+      elementsList%period(51) = 5
+      elementsList%standardAtomicMass(51) = 121.76
+      elementsList%density(51) = 6.685
+      elementsList%atomicNumber(52) = 52
+      elementsList%atomicSymbol(52) = "Te"
+      elementsList%elementName(52) = "Tellurium"
+      elementsList%group(52) = 16
+      elementsList%period(52) = 5
+      elementsList%standardAtomicMass(52) = 127.6
+      elementsList%density(52) = 6.232
+      elementsList%atomicNumber(53) = 53
+      elementsList%atomicSymbol(53) = "I"
+      elementsList%elementName(53) = "Iodine"
+      elementsList%group(53) = 17
+      elementsList%period(53) = 5
+      elementsList%standardAtomicMass(53) = 126.90447
+      elementsList%density(53) = 4.93
+      elementsList%atomicNumber(54) = 54
+      elementsList%atomicSymbol(54) = "Xe"
+      elementsList%elementName(54) = "Xenon"
+      elementsList%group(54) = 18
+      elementsList%period(54) = 5
+      elementsList%standardAtomicMass(54) = 131.293
+      elementsList%density(54) = 0.005887
+      elementsList%atomicNumber(55) = 55
+      elementsList%atomicSymbol(55) = "Cs"
+      elementsList%elementName(55) = "Caesium"
+      elementsList%group(55) = 1
+      elementsList%period(55) = 6
+      elementsList%standardAtomicMass(55) = 132.90545196
+      elementsList%density(55) = 1.873
+      elementsList%atomicNumber(56) = 56
+      elementsList%atomicSymbol(56) = "Ba"
+      elementsList%elementName(56) = "Barium"
+      elementsList%group(56) = 2
+      elementsList%period(56) = 6
+      elementsList%standardAtomicMass(56) = 137.327
+      elementsList%density(56) = 3.594
+      elementsList%atomicNumber(57) = 57
+      elementsList%atomicSymbol(57) = "La"
+      elementsList%elementName(57) = "Lanthanum"
+      elementsList%group(57) = 0
+      elementsList%period(57) = 6
+      elementsList%standardAtomicMass(57) = 138.90547
+      elementsList%density(57) = 6.145
+      elementsList%atomicNumber(58) = 58
+      elementsList%atomicSymbol(58) = "Ce"
+      elementsList%elementName(58) = "Cerium"
+      elementsList%group(58) = 0
+      elementsList%period(58) = 6
+      elementsList%standardAtomicMass(58) = 140.116
+      elementsList%density(58) = 6.77
+      elementsList%atomicNumber(59) = 59
+      elementsList%atomicSymbol(59) = "Pr"
+      elementsList%elementName(59) = "Praseodymium"
+      elementsList%group(59) = 0
+      elementsList%period(59) = 6
+      elementsList%standardAtomicMass(59) = 140.90766
+      elementsList%density(59) = 6.773
+      elementsList%atomicNumber(60) = 60
+      elementsList%atomicSymbol(60) = "Nd"
+      elementsList%elementName(60) = "Neodymium"
+      elementsList%group(60) = 0
+      elementsList%period(60) = 6
+      elementsList%standardAtomicMass(60) = 144.242
+      elementsList%density(60) = 7.007
+      elementsList%atomicNumber(61) = 61
+      elementsList%atomicSymbol(61) = "Pm"
+      elementsList%elementName(61) = "Promethium"
+      elementsList%group(61) = 0
+      elementsList%period(61) = 6
+      elementsList%standardAtomicMass(61) = 145
+      elementsList%density(61) = 7.26
+      elementsList%atomicNumber(62) = 62
+      elementsList%atomicSymbol(62) = "Sm"
+      elementsList%elementName(62) = "Samarium"
+      elementsList%group(62) = 0
+      elementsList%period(62) = 6
+      elementsList%standardAtomicMass(62) = 150.36
+      elementsList%density(62) = 7.52
+      elementsList%atomicNumber(63) = 63
+      elementsList%atomicSymbol(63) = "Eu"
+      elementsList%elementName(63) = "Europium"
+      elementsList%group(63) = 0
+      elementsList%period(63) = 6
+      elementsList%standardAtomicMass(63) = 151.964
+      elementsList%density(63) = 5.243
+      elementsList%atomicNumber(64) = 64
+      elementsList%atomicSymbol(64) = "Gd"
+      elementsList%elementName(64) = "Gadolinium"
+      elementsList%group(64) = 0
+      elementsList%period(64) = 6
+      elementsList%standardAtomicMass(64) = 157.25
+      elementsList%density(64) = 7.895
+      elementsList%atomicNumber(65) = 65
+      elementsList%atomicSymbol(65) = "Tb"
+      elementsList%elementName(65) = "Terbium"
+      elementsList%group(65) = 0
+      elementsList%period(65) = 6
+      elementsList%standardAtomicMass(65) = 158.92535
+      elementsList%density(65) = 8.229
+      elementsList%atomicNumber(66) = 66
+      elementsList%atomicSymbol(66) = "Dy"
+      elementsList%elementName(66) = "Dysprosium"
+      elementsList%group(66) = 0
+      elementsList%period(66) = 6
+      elementsList%standardAtomicMass(66) = 162.5
+      elementsList%density(66) = 8.55
+      elementsList%atomicNumber(67) = 67
+      elementsList%atomicSymbol(67) = "Ho"
+      elementsList%elementName(67) = "Holmium"
+      elementsList%group(67) = 0
+      elementsList%period(67) = 6
+      elementsList%standardAtomicMass(67) = 164.93033
+      elementsList%density(67) = 8.795
+      elementsList%atomicNumber(68) = 68
+      elementsList%atomicSymbol(68) = "Er"
+      elementsList%elementName(68) = "Erbium"
+      elementsList%group(68) = 0
+      elementsList%period(68) = 6
+      elementsList%standardAtomicMass(68) = 167.259
+      elementsList%density(68) = 9.066
+      elementsList%atomicNumber(69) = 69
+      elementsList%atomicSymbol(69) = "Tm"
+      elementsList%elementName(69) = "Thulium"
+      elementsList%group(69) = 0
+      elementsList%period(69) = 6
+      elementsList%standardAtomicMass(69) = 168.93422
+      elementsList%density(69) = 9.321
+      elementsList%atomicNumber(70) = 70
+      elementsList%atomicSymbol(70) = "Yb"
+      elementsList%elementName(70) = "Ytterbium"
+      elementsList%group(70) = 0
+      elementsList%period(70) = 6
+      elementsList%standardAtomicMass(70) = 173.045
+      elementsList%density(70) = 6.965
+      elementsList%atomicNumber(71) = 71
+      elementsList%atomicSymbol(71) = "Lu"
+      elementsList%elementName(71) = "Lutetium"
+      elementsList%group(71) = 3
+      elementsList%period(71) = 6
+      elementsList%standardAtomicMass(71) = 174.9668
+      elementsList%density(71) = 9.84
+      elementsList%atomicNumber(72) = 72
+      elementsList%atomicSymbol(72) = "Hf"
+      elementsList%elementName(72) = "Hafnium"
+      elementsList%group(72) = 4
+      elementsList%period(72) = 6
+      elementsList%standardAtomicMass(72) = 178.49
+      elementsList%density(72) = 13.31
+      elementsList%atomicNumber(73) = 73
+      elementsList%atomicSymbol(73) = "Ta"
+      elementsList%elementName(73) = "Tantalum"
+      elementsList%group(73) = 5
+      elementsList%period(73) = 6
+      elementsList%standardAtomicMass(73) = 180.94788
+      elementsList%density(73) = 16.654
+      elementsList%atomicNumber(74) = 74
+      elementsList%atomicSymbol(74) = "W"
+      elementsList%elementName(74) = "Tungsten"
+      elementsList%group(74) = 6
+      elementsList%period(74) = 6
+      elementsList%standardAtomicMass(74) = 183.84
+      elementsList%density(74) = 19.25
+      elementsList%atomicNumber(75) = 75
+      elementsList%atomicSymbol(75) = "Re"
+      elementsList%elementName(75) = "Rhenium"
+      elementsList%group(75) = 7
+      elementsList%period(75) = 6
+      elementsList%standardAtomicMass(75) = 186.207
+      elementsList%density(75) = 21.02
+      elementsList%atomicNumber(76) = 76
+      elementsList%atomicSymbol(76) = "Os"
+      elementsList%elementName(76) = "Osmium"
+      elementsList%group(76) = 8
+      elementsList%period(76) = 6
+      elementsList%standardAtomicMass(76) = 190.23
+      elementsList%density(76) = 22.61
+      elementsList%atomicNumber(77) = 77
+      elementsList%atomicSymbol(77) = "Ir"
+      elementsList%elementName(77) = "Iridium"
+      elementsList%group(77) = 9
+      elementsList%period(77) = 6
+      elementsList%standardAtomicMass(77) = 192.217
+      elementsList%density(77) = 22.56
+      elementsList%atomicNumber(78) = 78
+      elementsList%atomicSymbol(78) = "Pt"
+      elementsList%elementName(78) = "Platinum"
+      elementsList%group(78) = 10
+      elementsList%period(78) = 6
+      elementsList%standardAtomicMass(78) = 195.084
+      elementsList%density(78) = 21.46
+      elementsList%atomicNumber(79) = 79
+      elementsList%atomicSymbol(79) = "Au"
+      elementsList%elementName(79) = "Gold"
+      elementsList%group(79) = 11
+      elementsList%period(79) = 6
+      elementsList%standardAtomicMass(79) = 196.966569
+      elementsList%density(79) = 19.282
+      elementsList%atomicNumber(80) = 80
+      elementsList%atomicSymbol(80) = "Hg"
+      elementsList%elementName(80) = "Mercury"
+      elementsList%group(80) = 12
+      elementsList%period(80) = 6
+      elementsList%standardAtomicMass(80) = 200.592
+      elementsList%density(80) = 13.5336
+      elementsList%atomicNumber(81) = 81
+      elementsList%atomicSymbol(81) = "Tl"
+      elementsList%elementName(81) = "Thallium"
+      elementsList%group(81) = 13
+      elementsList%period(81) = 6
+      elementsList%standardAtomicMass(81) = 204.38
+      elementsList%density(81) = 11.85
+      elementsList%atomicNumber(82) = 82
+      elementsList%atomicSymbol(82) = "Pb"
+      elementsList%elementName(82) = "Lead"
+      elementsList%group(82) = 14
+      elementsList%period(82) = 6
+      elementsList%standardAtomicMass(82) = 207.2
+      elementsList%density(82) = 11.342
+      elementsList%atomicNumber(83) = 83
+      elementsList%atomicSymbol(83) = "Bi"
+      elementsList%elementName(83) = "Bismuth"
+      elementsList%group(83) = 15
+      elementsList%period(83) = 6
+      elementsList%standardAtomicMass(83) = 208.9804
+      elementsList%density(83) = 9.807
+      elementsList%atomicNumber(84) = 84
+      elementsList%atomicSymbol(84) = "Po"
+      elementsList%elementName(84) = "Polonium"
+      elementsList%group(84) = 16
+      elementsList%period(84) = 6
+      elementsList%standardAtomicMass(84) = 209
+      elementsList%density(84) = 9.32
+      elementsList%atomicNumber(85) = 85
+      elementsList%atomicSymbol(85) = "At"
+      elementsList%elementName(85) = "Astatine"
+      elementsList%group(85) = 17
+      elementsList%period(85) = 6
+      elementsList%standardAtomicMass(85) = 210
+      elementsList%density(85) = 7
+      elementsList%atomicNumber(86) = 86
+      elementsList%atomicSymbol(86) = "Rn"
+      elementsList%elementName(86) = "Radon"
+      elementsList%group(86) = 18
+      elementsList%period(86) = 6
+      elementsList%standardAtomicMass(86) = 222
+      elementsList%density(86) = 0.00973
+      elementsList%atomicNumber(87) = 87
+      elementsList%atomicSymbol(87) = "Fr"
+      elementsList%elementName(87) = "Francium"
+      elementsList%group(87) = 1
+      elementsList%period(87) = 7
+      elementsList%standardAtomicMass(87) = 223
+      elementsList%density(87) = 1.87
+      elementsList%atomicNumber(88) = 88
+      elementsList%atomicSymbol(88) = "Ra"
+      elementsList%elementName(88) = "Radium"
+      elementsList%group(88) = 2
+      elementsList%period(88) = 7
+      elementsList%standardAtomicMass(88) = 226
+      elementsList%density(88) = 5.5
+      elementsList%atomicNumber(89) = 89
+      elementsList%atomicSymbol(89) = "Ac"
+      elementsList%elementName(89) = "Actinium"
+      elementsList%group(89) = 0
+      elementsList%period(89) = 7
+      elementsList%standardAtomicMass(89) = 227
+      elementsList%density(89) = 10.07
+      elementsList%atomicNumber(90) = 90
+      elementsList%atomicSymbol(90) = "Th"
+      elementsList%elementName(90) = "Thorium"
+      elementsList%group(90) = 0
+      elementsList%period(90) = 7
+      elementsList%standardAtomicMass(90) = 232.0377
+      elementsList%density(90) = 11.72
+      elementsList%atomicNumber(91) = 91
+      elementsList%atomicSymbol(91) = "Pa"
+      elementsList%elementName(91) = "Protactinium"
+      elementsList%group(91) = 0
+      elementsList%period(91) = 7
+      elementsList%standardAtomicMass(91) = 231.03588
+      elementsList%density(91) = 15.37
+      elementsList%atomicNumber(92) = 92
+      elementsList%atomicSymbol(92) = "U"
+      elementsList%elementName(92) = "Uranium"
+      elementsList%group(92) = 0
+      elementsList%period(92) = 7
+      elementsList%standardAtomicMass(92) = 238.02891
+      elementsList%density(92) = 18.95
+      elementsList%atomicNumber(93) = 93
+      elementsList%atomicSymbol(93) = "Np"
+      elementsList%elementName(93) = "Neptunium"
+      elementsList%group(93) = 0
+      elementsList%period(93) = 7
+      elementsList%standardAtomicMass(93) = 237
+      elementsList%density(93) = 20.45
+      elementsList%atomicNumber(94) = 94
+      elementsList%atomicSymbol(94) = "Pu"
+      elementsList%elementName(94) = "Plutonium"
+      elementsList%group(94) = 0
+      elementsList%period(94) = 7
+      elementsList%standardAtomicMass(94) = 244
+      elementsList%density(94) = 19.84
+      elementsList%atomicNumber(95) = 95
+      elementsList%atomicSymbol(95) = "Am"
+      elementsList%elementName(95) = "Americium"
+      elementsList%group(95) = 0
+      elementsList%period(95) = 7
+      elementsList%standardAtomicMass(95) = 243
+      elementsList%density(95) = 13.69
+      elementsList%atomicNumber(96) = 96
+      elementsList%atomicSymbol(96) = "Cm"
+      elementsList%elementName(96) = "Curium"
+      elementsList%group(96) = 0
+      elementsList%period(96) = 7
+      elementsList%standardAtomicMass(96) = 247
+      elementsList%density(96) = 13.51
+      elementsList%atomicNumber(97) = 97
+      elementsList%atomicSymbol(97) = "Bk"
+      elementsList%elementName(97) = "Berkelium"
+      elementsList%group(97) = 0
+      elementsList%period(97) = 7
+      elementsList%standardAtomicMass(97) = 247
+      elementsList%density(97) = 14.79
+      elementsList%atomicNumber(98) = 98
+      elementsList%atomicSymbol(98) = "Cf"
+      elementsList%elementName(98) = "Californium"
+      elementsList%group(98) = 0
+      elementsList%period(98) = 7
+      elementsList%standardAtomicMass(98) = 251
+      elementsList%density(98) = 15.1
+      elementsList%atomicNumber(99) = 99
+      elementsList%atomicSymbol(99) = "Es"
+      elementsList%elementName(99) = "Einsteinium"
+      elementsList%group(99) = 0
+      elementsList%period(99) = 7
+      elementsList%standardAtomicMass(99) = 252
+      elementsList%density(99) = 8.84
+      elementsList%atomicNumber(100) = 100
+      elementsList%atomicSymbol(100) = "Fm"
+      elementsList%elementName(100) = "Fermium"
+      elementsList%group(100) = 0
+      elementsList%period(100) = 7
+      elementsList%standardAtomicMass(100) = 257
+      elementsList%density(100) = 9.7
+      elementsList%atomicNumber(101) = 101
+      elementsList%atomicSymbol(101) = "Md"
+      elementsList%elementName(101) = "Mendelevium"
+      elementsList%group(101) = 0
+      elementsList%period(101) = 7
+      elementsList%standardAtomicMass(101) = 258
+      elementsList%density(101) = 10.3
+      elementsList%atomicNumber(102) = 102
+      elementsList%atomicSymbol(102) = "No"
+      elementsList%elementName(102) = "Nobelium"
+      elementsList%group(102) = 0
+      elementsList%period(102) = 7
+      elementsList%standardAtomicMass(102) = 259
+      elementsList%density(102) = 9.9
+      elementsList%atomicNumber(103) = 103
+      elementsList%atomicSymbol(103) = "Lr"
+      elementsList%elementName(103) = "Lawrencium"
+      elementsList%group(103) = 3
+      elementsList%period(103) = 7
+      elementsList%standardAtomicMass(103) = 266
+      elementsList%density(103) = 15.6
+      elementsList%atomicNumber(104) = 104
+      elementsList%atomicSymbol(104) = "Rf"
+      elementsList%elementName(104) = "Rutherfordium"
+      elementsList%group(104) = 4
+      elementsList%period(104) = 7
+      elementsList%standardAtomicMass(104) = 267
+      elementsList%density(104) = 23.2
+      elementsList%atomicNumber(105) = 105
+      elementsList%atomicSymbol(105) = "Db"
+      elementsList%elementName(105) = "Dubnium"
+      elementsList%group(105) = 5
+      elementsList%period(105) = 7
+      elementsList%standardAtomicMass(105) = 268
+      elementsList%density(105) = 29.3
+      elementsList%atomicNumber(106) = 106
+      elementsList%atomicSymbol(106) = "Sg"
+      elementsList%elementName(106) = "Seaborgium"
+      elementsList%group(106) = 6
+      elementsList%period(106) = 7
+      elementsList%standardAtomicMass(106) = 269
+      elementsList%density(106) = 35
+      elementsList%atomicNumber(107) = 107
+      elementsList%atomicSymbol(107) = "Bh"
+      elementsList%elementName(107) = "Bohrium"
+      elementsList%group(107) = 7
+      elementsList%period(107) = 7
+      elementsList%standardAtomicMass(107) = 270
+      elementsList%density(107) = 37.1
+      elementsList%atomicNumber(108) = 108
+      elementsList%atomicSymbol(108) = "Hs"
+      elementsList%elementName(108) = "Hassium"
+      elementsList%group(108) = 8
+      elementsList%period(108) = 7
+      elementsList%standardAtomicMass(108) = 269
+      elementsList%density(108) = 40.7
+      elementsList%atomicNumber(109) = 109
+      elementsList%atomicSymbol(109) = "Mt"
+      elementsList%elementName(109) = "Meitnerium"
+      elementsList%group(109) = 9
+      elementsList%period(109) = 7
+      elementsList%standardAtomicMass(109) = 278
+      elementsList%density(109) = 37.4
+      elementsList%atomicNumber(110) = 110
+      elementsList%atomicSymbol(110) = "Ds"
+      elementsList%elementName(110) = "Darmstadtium"
+      elementsList%group(110) = 10
+      elementsList%period(110) = 7
+      elementsList%standardAtomicMass(110) = 281
+      elementsList%density(110) = 34.8
+      elementsList%atomicNumber(111) = 111
+      elementsList%atomicSymbol(111) = "Rg"
+      elementsList%elementName(111) = "Roentgenium"
+      elementsList%group(111) = 11
+      elementsList%period(111) = 7
+      elementsList%standardAtomicMass(111) = 282
+      elementsList%density(111) = 28.7
+      elementsList%atomicNumber(112) = 112
+      elementsList%atomicSymbol(112) = "Cn"
+      elementsList%elementName(112) = "Copernicium"
+      elementsList%group(112) = 12
+      elementsList%period(112) = 7
+      elementsList%standardAtomicMass(112) = 285
+      elementsList%density(112) = 23.7
+      elementsList%atomicNumber(113) = 113
+      elementsList%atomicSymbol(113) = "Uut"
+      elementsList%elementName(113) = "Ununtrium"
+      elementsList%group(113) = 13
+      elementsList%period(113) = 7
+      elementsList%standardAtomicMass(113) = 286
+      elementsList%density(113) = 16
+      elementsList%atomicNumber(114) = 114
+      elementsList%atomicSymbol(114) = "Fl"
+      elementsList%elementName(114) = "Flerovium"
+      elementsList%group(114) = 14
+      elementsList%period(114) = 7
+      elementsList%standardAtomicMass(114) = 289
+      elementsList%density(114) = 14
+      elementsList%atomicNumber(115) = 115
+      elementsList%atomicSymbol(115) = "Uup"
+      elementsList%elementName(115) = "Ununpentium"
+      elementsList%group(115) = 15
+      elementsList%period(115) = 7
+      elementsList%standardAtomicMass(115) = 289
+      elementsList%density(115) = 13.5
+      elementsList%atomicNumber(116) = 116
+      elementsList%atomicSymbol(116) = "Lv"
+      elementsList%elementName(116) = "Livermorium"
+      elementsList%group(116) = 16
+      elementsList%period(116) = 7
+      elementsList%standardAtomicMass(116) = 293
+      elementsList%density(116) = 12.9
+      elementsList%atomicNumber(117) = 117
+      elementsList%atomicSymbol(117) = "Uus"
+      elementsList%elementName(117) = "Ununseptium"
+      elementsList%group(117) = 17
+      elementsList%period(117) = 7
+      elementsList%standardAtomicMass(117) = 294
+      elementsList%density(117) = 7.2
+      elementsList%atomicNumber(118) = 118
+      elementsList%atomicSymbol(118) = "Uuo"
+      elementsList%elementName(118) = "Ununoctium"
+      elementsList%group(118) = 18
+      elementsList%period(118) = 7
+      elementsList%standardAtomicMass(118) = 294
+      elementsList%density(118) = 5
+      elementsList%elementCount = 118
+  End Subroutine loadElementsData
 End Module isotopes
 
 !-----------------------------------------------------------------------------------------------------

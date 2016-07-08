@@ -10,12 +10,12 @@ Module arrayFunctions
   Private
 ! Public
 ! ---- Functions
-! ---- Subroutines  
+! ---- Subroutines
   Public :: PrintMatrix
-  Public :: swapArrayRows1D
-  Public :: swapArrayRows2D
+  !Public :: swapArrayRows1D
+  !Public :: swapArrayRows2D
   Public :: swapRows
-! Interfaces  
+! Interfaces
   Interface PrintMatrix
     Module Procedure PrintMatrix_1D, PrintMatrix_2D
   End Interface PrintMatrix
@@ -25,16 +25,16 @@ Module arrayFunctions
   End Interface swapRows
 ! ---- Subroutines
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Contains 
+  Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
 
 ! ---------------------------------------------------------
 ! MODULE FUNCTIONS
 ! ---------------------------------------------------------
-  
+
 ! ---------------------------------------------------------
 ! MODULE SUBROUTINES
-! ---------------------------------------------------------  
+! ---------------------------------------------------------
 
 ! ARRAYS
 
@@ -111,68 +111,10 @@ Module arrayFunctions
 ! End Do
   End Subroutine extractArrayColumnInt
 
-  Subroutine swapArrayRows1D(matrix,rowA,rowB)
-! Swap rows of square dp matrix
-! force declaration of all variables
-    Implicit None
-! declare private variables
-    Integer(kind=StandardInteger) :: i, rowA, rowB, matH, matW
-    Real(kind=DoubleReal), Dimension( : ), Allocatable :: matrix
-    Real(kind=DoubleReal), Dimension( : ), Allocatable :: rowAArr
-    Real(kind=DoubleReal), Dimension( : ), Allocatable :: rowBArr
-! Set variables
-    matH = size(matrix,1)
-    matW = 1
-! Only do if rows are in the matrix
-    If(rowA.ge.1.and.rowA.le.matH.and.rowB.ge.1.and.rowB.le.matH)Then
-! Allocate arrays
-      Allocate(rowAArr(1:matW))
-      Allocate(rowBArr(1:matW))
-! Swap rows
-      Do i=1,matW
-        rowAArr(i) = matrix(rowA)
-        rowBArr(i) = matrix(rowB)
-      End Do
-      Do i=1,matW
-        matrix(rowA) = rowBArr(i)
-        matrix(rowB) = rowAArr(i)
-      End Do
-    End If
-  End Subroutine swapArrayRows1D
-
-  Subroutine swapArrayRows2D(matrix,rowA,rowB)
-! Swap rows of square dp matrix
-! force declaration of all variables
-    Implicit None
-! declare private variables
-    Integer(kind=StandardInteger) :: i, rowA, rowB, matH, matW
-    Real(kind=DoubleReal), Dimension( : , :), Allocatable :: matrix
-    Real(kind=DoubleReal), Dimension( : ), Allocatable :: rowAArr
-    Real(kind=DoubleReal), Dimension( : ), Allocatable :: rowBArr
-! Set variables
-    matH = size(matrix,1)
-    matW = size(matrix,2)
-! Only do if rows are in the matrix
-    If(rowA.ge.1.and.rowA.le.matH.and.rowB.ge.1.and.rowB.le.matH)Then
-! Allocate arrays
-      Allocate(rowAArr(1:matW))
-      Allocate(rowBArr(1:matW))
-! Swap rows
-      Do i=1,matW
-        rowAArr(i) = matrix(rowA,i)
-        rowBArr(i) = matrix(rowB,i)
-      End Do
-      Do i=1,matW
-        matrix(rowA,i) = rowBArr(i)
-        matrix(rowB,i) = rowAArr(i)
-      End Do
-    End If
-  End Subroutine swapArrayRows2D
-  
-! ---------------  
+! ---------------
 ! Swap Rows
-! ---------------  
-  
+! ---------------
+
   ! Integer, 1D:
   Subroutine swapRows_Integer_1D(matrix,rowA,rowB)
     Integer(kind=StandardInteger) :: matrix(:)
@@ -245,40 +187,55 @@ Module arrayFunctions
     End Do
   End Subroutine swapRows_Double_2D
 
-! Integer, 1D:
-  Subroutine sort_Integer_1D(list)
-    Integer(kind=StandardInteger) :: list(:)
-    Integer(kind=StandardInteger) :: i, sortComplete
-! Sort list
-    sortComplete = 0
-    Do While(sortComplete.eq.0)
-      sortComplete = 1
-      Do i=2,size(list,1)
-        If(list(i-1).gt.list(i))Then
-          Call swapRows_Integer_1D(list,i-1,i)
-          sortComplete = 0
-        End If
-      End Do
-    End Do
-  End Subroutine sort_Integer_1D
 
-! Integer, 2D:
-  Subroutine sort_Integer_2D(list, sortRow)
-    Integer(kind=StandardInteger) :: list(:,:)
-    Integer(kind=StandardInteger) :: i, sortRow, sortComplete
-! Sort list
-    sortComplete = 0
-    Do While(sortComplete.eq.0)
-      sortComplete = 1
-      Do i=2,size(list,1)
-        If(list(i-1,sortRow).gt.list(i,sortRow))Then
-          Call swapRows_Integer_2D(list,i-1,i)
-          sortComplete = 0
-        End If
-      End Do
+  Subroutine swapRows_Char_1D(matrix,rowA,rowB)
+! Swap rows, character, 1D array:
+    Implicit None   ! Force declaration of all variables
+! Vars:  In/Out
+    Character(*), Dimension(:) :: matrix
+    Integer(kind=StandardInteger) :: rowA, rowB
+    Character(Len(matrix)) :: temp
+! Swap rows
+    temp = matrix(rowA)
+    matrix(rowA) = matrix(rowB)
+    matrix(rowB) = temp
+  End Subroutine swapRows_Char_1D
+
+
+  Subroutine swapRows_Char_2D(matrix,rowA,rowB)
+! Swap rows, character, 2D array:
+    Implicit None   ! Force declaration of all variables
+! Vars:  In/Out
+    Character(*), Dimension(:,:) :: matrix
+    Integer(kind=StandardInteger) :: rowA, rowB
+! Vars:  Private
+    Character(Len(matrix)) :: temp
+    Integer(kind=StandardInteger) :: i
+! Swap rows
+    Do i=1,size(matrix,2)
+      temp = matrix(rowA,i)
+      matrix(rowA,i) = matrix(rowB,i)
+      matrix(rowB,i) = temp
     End Do
-  End Subroutine sort_Integer_2D  
+  End Subroutine swapRows_Char_2D
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 !---------------------------------------------------------------------------------------------------------------------------------------
 !---------------------------------------------------------------------------------------------------------------------------------------
-End Module arrayFunctions 
+End Module arrayFunctions

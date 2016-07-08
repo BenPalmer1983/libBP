@@ -8,6 +8,8 @@ Module testMod
   Use logicalMod
   Use strings
   Use general
+  Use envTypes
+  Use env
   Use printModTypes
   Use printMod
   Use activityFunctionsTypes
@@ -15,6 +17,7 @@ Module testMod
   Use basicMaths
   Use keysMod
   Use laplaceTransforms
+  Use interpolation
   Use geomTypes
   Use geom
   Use potentialsTypes
@@ -262,6 +265,11 @@ Module testMod
     Real(kind=DoubleReal), Dimension(1:3) :: yArray
     Real(kind=DoubleReal) :: tempDp
     Character(Len=16) :: inputStr
+! Load Vars
+    Call loadVars()
+    print *,envVars%cwd
+    print *,envVars%user
+    print *,envVars%home
 !    Type(isotopesObj) :: isotopesList
 !    Type(isotopeObj) :: isotopeA
 ! Load isotope data
@@ -299,6 +307,8 @@ Module testMod
     Call printPotentialSummary(potential)      ! potentials.f90
 ! Print
     Call printAtomLabelIDs(coords)
+! Output Potential
+    Call outputPotential(potential,envVars%cwd)
 ! Build neighbour list
     Call addLinePage("Build neighbour list")
     Call makeNL(nl, coords, 6.5D0)       ! geom.f90
@@ -328,7 +338,7 @@ Module testMod
     !print *,searchObj%x,yArray(1),yArray(2),yArray(3)
 
 
-    !Call printPage(mainPage)
+
 
   End Subroutine testStaticCalc
 
