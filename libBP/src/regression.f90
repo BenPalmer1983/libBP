@@ -15,7 +15,7 @@ Module regression
 ! Public
 ! --variables--!
 ! --functions--!
-  Public :: PolyFit
+  Public :: PolyFitR
   Public :: LinearRegression
 ! Interfaces
 !
@@ -23,7 +23,7 @@ Module regression
   Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
 
-  Function PolyFit(points,order) RESULT (coefficients)
+  Function PolyFitR(points,order) RESULT (coefficients)
 ! Fits a polynomial of order to the points input
 ! Uses Vandermonde Matrix
     Implicit None  !Force declaration of all variables
@@ -60,7 +60,7 @@ Module regression
     xMatrix = InvertMatrix(xMatrix)
 ! multiply inverse by y to get coefficients
     coefficients = matMul(xMatrix,yMatrix)
-  End Function PolyFit
+  End Function PolyFitR
 
 
   Function LinearRegression(X,Y) RESULT (parameters)

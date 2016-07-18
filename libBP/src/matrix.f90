@@ -1,7 +1,15 @@
-Module matrix
 ! --------------------------------------------------------------!
+! Matrix module
+! matrix
 ! Ben Palmer, University of Birmingham
 ! --------------------------------------------------------------!
+! Various Matrix functions and subroutines
+!
+! ----------------------------------------
+! Updated: 21st May 2016
+! ----------------------------------------
+Module matrix
+! Load any required modules
   Use kinds
   Use arrayFunctions
 ! Force declaration of all variables
@@ -17,13 +25,13 @@ Module matrix
   Public :: Trace
   Public :: MatAdd
   Public :: MatMult
-  Public :: ScalarMult  
+  Public :: ScalarMult
   Public :: PivotMatrix
   Public :: PositiveYMatrix
   Public :: LnYMatrix
 ! --- Subroutines
   Public :: LUDecomp
-! Interfaces  
+! Interfaces
   Interface Trace
     Module Procedure Trace_R, Trace_I
   End Interface Trace
@@ -31,7 +39,7 @@ Module matrix
     Module Procedure PivotMatrix_1D, PivotMatrix_2D
   End Interface PivotMatrix
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Contains 
+  Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
 
 ! ---------------------------------------------------------
@@ -50,7 +58,7 @@ Module matrix
     Integer(kind=StandardInteger) :: matrixSize
     Real(kind=DoubleReal), Dimension(1:size(xMatrix,1),1:2*size(xMatrix,1)) :: xMatrixWorking
     Real(kind=DoubleReal), Dimension(1:2*size(xMatrix,1)) :: xMatrixRow
-! matrix(row,column)  
+! matrix(row,column)
 ! Initialise variables
     row = 0
     rowb = 0
@@ -129,7 +137,7 @@ Module matrix
           xMatrixWorking(row,col+matrixSize)/xMatrixWorking(row,row)
         End Do
       End Do
-    End If 
+    End If
   End Function InvertMatrix
 
   Function TransposeMatrix(xMatrix) RESULT (xMatrixTranspose)
@@ -282,12 +290,12 @@ Module matrix
         oMatrix(i,j) = scalar*xMatrix(i,j)
       End Do
     End Do
-  End Function ScalarMult  
+  End Function ScalarMult
 
 ! ---------------------------------------------------------
 ! MODULE SUBROUTINES
-! ---------------------------------------------------------  
-  
+! ---------------------------------------------------------
+
   Subroutine LUDecomp(xMatrix, lMatrix, uMatrix)
 ! Force declaration of all variables
     Implicit None
@@ -329,7 +337,7 @@ Module matrix
       End Do
     End If
   End Subroutine LUDecomp
-    
+
   Subroutine PivotMatrix_1D(xMatrix, pivotMap, operationIn)
 ! Force declaration of all variables
     Implicit None
@@ -337,17 +345,17 @@ Module matrix
     Real(kind=DoubleReal), Dimension(:) :: xMatrix
     Integer(kind=StandardInteger), Dimension(:) :: pivotMap
     Character(Len=1), Optional :: operationIn
-! Private: Declare variables    
+! Private: Declare variables
     Integer(kind=StandardInteger) :: row
     Logical :: sortFlag
     Character(Len=1) :: operation
     Logical, Dimension(1:size(xMatrix,1)) :: swapFlags
-! Optional     
+! Optional
     operation = "M"  ! M make, A apply, R reverse
     If(Present(operationIn))Then
       operation = operationIn
     End If
-! M: Make pivot map and pivot the input matrix    
+! M: Make pivot map and pivot the input matrix
     If(operation.eq."M")Then
 ! Sort matrix
       sortFlag = .true.
@@ -361,7 +369,7 @@ Module matrix
           End If
         End Do
       End Do
-    End If  
+    End If
 ! A: Apply pivot map to the input matrix (Reverse is just the same)
     If(operation.eq."A".or.operation.eq."R")Then
       swapFlags = .true.
@@ -371,10 +379,10 @@ Module matrix
           swapFlags(pivotMap(row)) = .false.
           Call swapRows(xMatrix,row,pivotMap(row))
         End If
-      End Do      
-    End If    
+      End Do
+    End If
   End Subroutine PivotMatrix_1D
-    
+
   Subroutine PivotMatrix_2D(xMatrix, pivotMap, operationIn)
 ! Force declaration of all variables
     Implicit None
@@ -382,27 +390,27 @@ Module matrix
     Real(kind=DoubleReal), Dimension(:,:) :: xMatrix
     Integer(kind=StandardInteger), Dimension(:) :: pivotMap
     Character(Len=1), Optional :: operationIn
-! Private: Declare variables    
+! Private: Declare variables
     Integer(kind=StandardInteger), Dimension(1:size(xMatrix,1)) :: sortMatrix
     Integer(kind=StandardInteger) :: row, col
     Logical :: sortFlag
     Character(Len=1) :: operation
     Logical, Dimension(1:size(xMatrix,1)) :: swapFlags
-! Optional     
+! Optional
     operation = "M"  ! M make, A apply, R reverse
     If(Present(operationIn))Then
       operation = operationIn
     End If
-! M: Make pivot map and pivot the input matrix    
+! M: Make pivot map and pivot the input matrix
     If(operation.eq."M")Then
-! Init  
+! Init
       sortMatrix = 0
 ! Loop
-      Do row=1,size(xMatrix,1)   
-        Do col=1,size(xMatrix,2)       
+      Do row=1,size(xMatrix,1)
+        Do col=1,size(xMatrix,2)
           If(xMatrix(row,col).ne.0.0D0)Then
             sortMatrix(row) = sortMatrix(row) + 2**(size(xMatrix,2)-col+1)
-          End If  
+          End If
         End Do
         pivotMap(row) = row
       End Do
@@ -419,7 +427,7 @@ Module matrix
           End If
         End Do
       End Do
-    End If  
+    End If
 ! A: Apply pivot map to the input matrix (Reverse is just the same)
     If(operation.eq."A".or.operation.eq."R")Then
       swapFlags = .true.
@@ -429,11 +437,11 @@ Module matrix
           swapFlags(pivotMap(row)) = .false.
           Call swapRows(xMatrix,row,pivotMap(row))
         End If
-      End Do      
-    End If    
+      End Do
+    End If
   End Subroutine PivotMatrix_2D
-  
-  
+
+
   Subroutine PositiveYMatrix(X,Y)
 ! Make Y side positive
 ! Used when taking ln of Y matrix to fit exp(P(x)) spline
@@ -453,9 +461,9 @@ Module matrix
           End Do
         End If
       End Do
-    End If  
-  End Subroutine PositiveYMatrix  
-  
+    End If
+  End Subroutine PositiveYMatrix
+
   Subroutine LnYMatrix(Y)
 ! Take LN of Y matrix
 ! Used to fit exp(P(x)) spline
@@ -470,7 +478,7 @@ Module matrix
         Y(row) = 1.0D-99 ! stop 0.0D0 breaking it
       End If
       Y(row) = log(Y(row))
-    End Do 
-  End Subroutine LnYMatrix  
-    
+    End Do
+  End Subroutine LnYMatrix
+
 End Module matrix

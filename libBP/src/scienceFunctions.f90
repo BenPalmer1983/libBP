@@ -1,5 +1,5 @@
 ! --------------------------------------------------------------!
-!Science Functions module
+! Science Functions module
 ! scienceFunctions
 ! Ben Palmer, University of Birmingham
 ! --------------------------------------------------------------!
@@ -44,6 +44,8 @@ Module scienceFunctions
 ! Public Subroutines and Functions
   Public :: F_ZBL
   Public :: F_ZblFull
+  Public :: F_Morse
+  Public :: F_MorseFull
 
 
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -145,6 +147,45 @@ Module scienceFunctions
     ddy = termFa*termGc+2*termFb*termGb+termFc*termGa
     yArray(3) = ddy
   End Function F_ZblFull
+
+
+  Function F_Morse (parametersIn, x) RESULT (y)
+! parametersIn(1) = De
+! parametersIn(2) = a
+! parametersIn(3) = rc
+! V(r) = De((1-exp(a(rc-r)))^2-1)
+! ZBL potential, separation x, charges qA and qB
+    Implicit None   ! Force declaration of all variables
+! Vars:  In
+    Real(kind=DoubleReal), Dimension(:) :: parametersIn
+    Real(kind=DoubleReal) :: x
+! Vars:  Out
+    Real(kind=DoubleReal) :: y
+! Calc
+    y = parametersIn(1)*((1-exp(parametersIn(2)*(parametersIn(3)-x)))**2-1)
+  End Function F_Morse
+
+
+  Function F_MorseFull (parametersIn, x) RESULT (yArray)
+! parametersIn(1) = De
+! parametersIn(2) = a
+! parametersIn(3) = rc
+! V(r) = De((1-exp(a(rc-r)))^2-1)
+! V'(r) = 2De a (exp(a(rc-r))-exp(2a(rc-r)))
+! V''(r) =
+! ZBL potential, separation x, charges qA and qB
+    Implicit None   ! Force declaration of all variables
+! Vars:  In
+    Real(kind=DoubleReal), Dimension(:) :: parametersIn
+    Real(kind=DoubleReal) :: x
+! Vars:  Out
+    Real(kind=DoubleReal), Dimension(1:3) :: yArray
+! Calc
+    yArray(1) = parametersIn(1)*((1-exp(parametersIn(2)*(parametersIn(3)-x)))**2-1)
+    yArray(2) = 2.0D0*parametersIn(1)*(exp(parametersIn(2)*(parametersIn(3)-x))-&
+      exp(2.0D0*parametersIn(2)*(parametersIn(3)-x)))
+    yArray(3) = 0.0D0
+  End Function F_MorseFull
 
 
 End Module scienceFunctions

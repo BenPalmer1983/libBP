@@ -7,9 +7,10 @@ Module lmaM
   Use matrix
   Use linearAlgebra
   Use calcFunctions
+  Use scienceFunctions
 ! Force declaration of all variables
   Implicit None
-! Public variables  
+! Public variables
 ! Make private
   Private
 ! Public
@@ -20,15 +21,18 @@ Module lmaM
   Public :: LMA_BirchMurn
   Public :: LMA_Exp
   Public :: LMA_ExpDens
-! Interfaces  
+  Public :: LMA_Morse
+  Public :: LMA_MorseExtended
+  Public :: LMA_LJ
+! Interfaces
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Contains 
+  Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
-  
+
   Function LMA(points, calcFunction, parametersIn, weightingIn, limitsLowerIn, limitsUpperIn) &
   RESULT (parametersOut)
-! --------------------------------------------------------------------------------------------------  
+! --------------------------------------------------------------------------------------------------
 ! Functions by Ben Palmer University of Birmingham 2015
 !
 ! LMA algorithm
@@ -42,14 +46,14 @@ Module lmaM
 ! least-squares minimization:
 !    Delayed gratification scheme for varying lambda
 ! Jens Jessen-Hansen 2011, Levenberg-Marquardts algorithm Project in Numerical Methods:
-!    Independent/Diagonal covariance matrix for weighting 
-! Parameter limits implemented 
+!    Independent/Diagonal covariance matrix for weighting
+! Parameter limits implemented
 ! Finite difference method used to calculate J
 ! ----------------------------
 ! Requires kinds to be specified, if not already:
-! Integer, Parameter :: StandardInteger = Selected_Int_Kind(8) 
-! Integer, Parameter :: DoubleReal = Selected_Real_Kind(15,307) 
-! -------------------------------------------------------------------------------------------------- 
+! Integer, Parameter :: StandardInteger = Selected_Int_Kind(8)
+! Integer, Parameter :: DoubleReal = Selected_Real_Kind(15,307)
+! --------------------------------------------------------------------------------------------------
 ! points - array of input x,y data points the function is being fit to
 ! calcFunction - the name of the function being called to calculate f(x)
 ! parametersIn - the starting parameters that will be used and improved for calcFunction
@@ -80,17 +84,17 @@ Module lmaM
     Logical :: converged
 ! Optional arguments
     weighting = .true.
-    limitsLower = 1.0D0   
-    limitsUpper = -1.0D0   
+    limitsLower = 1.0D0
+    limitsUpper = -1.0D0
     If(Present(limitsLowerIn))Then
       limitsLower = limitsLowerIn
     End If
     If(Present(limitsUpperIn))Then
       limitsUpper = limitsUpperIn
-    End If   
+    End If
     If(Present(weightingIn))Then
       weighting = weightingIn
-    End If     
+    End If
 ! Init vars
     parameters = parametersIn
     nPoints = size(points,1)
@@ -131,7 +135,7 @@ Module lmaM
         parametersL = parameters
 ! calculate new parameters
         parameters = LMA_Calc(J,R,lambda,parameters,weighting)
-! Check for parameter limits        
+! Check for parameter limits
         Do i=1,size(parameters,1)
           If(limitsLower(i).lt.limitsUpper(i))Then
             If(parameters(i).lt.limitsLower(i))Then
@@ -146,8 +150,8 @@ Module lmaM
         rssTrial = LMA_FunctionRSS(points, calcFunction, parameters)
 ! Breakout if NaN
         If(Isnan(rssTrial))Then
-          parameters = parametersL 
-          Exit          
+          parameters = parametersL
+          Exit
         End If
 ! Check convergence
         convV = abs((rssTrial-rss)/rss)
@@ -189,12 +193,12 @@ Module lmaM
     Real(kind=DoubleReal), Dimension(1:size(parametersIn,1)) :: parametersOut
 ! Private variables
     Integer(kind=StandardInteger) :: i
-    Real(kind=DoubleReal), Dimension(1:size(R),1:size(R)) :: W                ! 
+    Real(kind=DoubleReal), Dimension(1:size(R),1:size(R)) :: W                !
     Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,1)) :: JT               ! Transpose Jacobian
-    Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,1)) :: JTW              ! 
+    Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,1)) :: JTW              !
     Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,2)) :: JTWJ
     Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,2)) :: JTWJ_Diag
-    Real(kind=DoubleReal), Dimension(1:size(J,2)) :: JTWR 
+    Real(kind=DoubleReal), Dimension(1:size(J,2)) :: JTWR
     Real(kind=DoubleReal), Dimension(1:size(J,2),1:size(J,2)) :: A  ! Left side
     Real(kind=DoubleReal), Dimension(1:size(J,2)) :: B              ! Right side
     Real(kind=DoubleReal), Dimension(1:size(J,2)) :: P                             ! Change
@@ -208,7 +212,7 @@ Module lmaM
     If(lambda.lt.lambdaCutoff)Then
       lambda = 0.0D0
     End If
-! Prep covariance matrix    
+! Prep covariance matrix
     W = 0.0D0
     Do i=1,size(R)
       If(weighting)Then
@@ -251,7 +255,7 @@ Module lmaM
     lambda = traceJTJ**(-1)
   End Function LMA_Lambda
 
-  Function LMA_FWrapper(calcFunction,x,parameters,pSize,limitsLower,limitsUpper) RESULT (fx)  
+  Function LMA_FWrapper(calcFunction,x,parameters,pSize,limitsLower,limitsUpper) RESULT (fx)
 ! Wrapper function around the function being called
     Implicit None  !Force declaration of all variables
 ! In
@@ -260,12 +264,12 @@ Module lmaM
     Real(kind=DoubleReal), Dimension(1:pSize), Intent(IN) :: parameters
     Real(kind=DoubleReal), Dimension(1:pSize) :: limitsLower, limitsUpper
     Real(kind=DoubleReal), Intent(IN) :: x
-! Out    
+! Out
     Real(kind=DoubleReal) :: fx
-! Private    
+! Private
     Integer(kind=StandardInteger) :: i
-! Calculation    
-    fx = calcFunction(x,parameters,pSize)  
+! Calculation
+    fx = calcFunction(x,parameters,pSize)
     Do i=1,pSize
       If(limitsLower(i).lt.limitsUpper(i))Then  ! Limits have been set
         If(parameters(i).lt.limitsLower(i).or.parameters(i).gt.limitsUpper(i))Then
@@ -276,7 +280,7 @@ Module lmaM
         End If
       End If
     End Do
-  End Function LMA_FWrapper    
+  End Function LMA_FWrapper
 
   Function LMA_FunctionRSS(points, calcFunction, parameters) RESULT (rss)
 ! RSS between function and calculated points
@@ -299,9 +303,9 @@ Module lmaM
       rss = rss + (y - fx)**2
     End Do
   End Function LMA_FunctionRSS
-  
+
 !---------------------------------------------------------------------------------------------------------------------------------------
-! Functions for LMA 
+! Functions for LMA
 !---------------------------------------------------------------------------------------------------------------------------------------
 
   Function LMA_Polynomial(x,parameters,pSize) RESULT (y)
@@ -328,21 +332,60 @@ Module lmaM
     Real(kind=DoubleReal), Dimension(1:pSize), Intent(IN) :: parameters
     Real(kind=DoubleReal), Intent(IN) :: x
     Real(kind=DoubleReal) :: y
-    y = ExpCalc(x,parameters)    
+    y = ExpCalc(x,parameters)
   End Function LMA_Exp
 
   Function LMA_ExpDens(x,parameters,pSize) RESULT (y)
-! Density function  p(r) = ar^2 exp(br^2) + cr^2 exp(dr^2)  
+! Density function  p(r) = ar^2 exp(br^2) + cr^2 exp(dr^2)
     Implicit None  !Force declaration of all variables
     Integer(kind=StandardInteger), Intent(IN) ::  pSize
     Real(kind=DoubleReal), Dimension(1:pSize), Intent(IN) :: parameters
     Real(kind=DoubleReal), Intent(IN) :: x
     Real(kind=DoubleReal) :: y
     y = parameters(1)*x**2*exp(parameters(2)*x**2)+&
-    parameters(3)*x**2*exp(parameters(4)*x**2)    
+    parameters(3)*x**2*exp(parameters(4)*x**2)
   End Function LMA_ExpDens
 
+  Function LMA_Morse(x,parameters,pSize) RESULT (y)
+! Morse Function  V(r) = D((1-exp(a(rc-r)))^2-1)
+! P(1) = D, P(2) = a, P(3) = rc
+    Implicit None  !Force declaration of all variables
+    Integer(kind=StandardInteger), Intent(IN) ::  pSize
+    Real(kind=DoubleReal), Dimension(1:pSize), Intent(IN) :: parameters
+    Real(kind=DoubleReal), Intent(IN) :: x
+    Real(kind=DoubleReal) :: y
+    y = parameters(1)*((1-exp(parameters(2)*(parameters(3)-x)))**2-1)
+  End Function LMA_Morse
 
-   
+  Function LMA_MorseExtended(x,parameters,pSize) RESULT (y)
+! Morse Function  V(r) = D((1-exp(a(rc-r)))^2-1)
+! P(1) = D, P(2) = a, P(3) = rc
+    Implicit None  !Force declaration of all variables
+    Integer(kind=StandardInteger), Intent(IN) ::  pSize
+    Real(kind=DoubleReal), Dimension(1:pSize), Intent(IN) :: parameters
+    Real(kind=DoubleReal), Intent(IN) :: x
+    Real(kind=DoubleReal), Dimension(1:3) :: yArray
+    Real(kind=DoubleReal) :: y
+! y = V(r)^2 + V'(r)^2
+    yArray = F_MorseFull (parameters, x)
+    y = yArray(1)**2+yArray(2)**2
+  End Function LMA_MorseExtended
+
+  Function LMA_LJ(x,parameters,pSize) RESULT (y)
+! Lennard-Jones function
+! P(1) = epsilon, P(2) = sigma
+    Implicit None  !Force declaration of all variables
+    Integer(kind=StandardInteger), Intent(IN) ::  pSize
+    Real(kind=DoubleReal), Dimension(1:pSize), Intent(IN) :: parameters
+    Real(kind=DoubleReal), Intent(IN) :: x
+    Real(kind=DoubleReal) :: y
+    y = 4.0D0*parameters(1)*((parameters(2)/x)**12-(parameters(2)/x)**6)
+  End Function LMA_LJ
+
+
+
+
+
+
 
 End Module lmaM

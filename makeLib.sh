@@ -9,8 +9,12 @@ srcDirLib=$workingDirLib"/libBP/src"
 modDirLib=$workingDirLib"/libBP/mod"
 libDirLib=$workingDirLib"/libBP/lib"
 binDirLib=$workingDirLib"/libBP/bin"
+#fortLine="mpif90 -g -Wall -Wno-unused-function \
+#-fbounds-check -fcheck=all -mtune=native \
+#-fmax-stack-var-size=65536 "  # -O3
 fortLine="mpif90 -g -Wall -Wno-unused-function \
--fbounds-check -fcheck=all -mtune=native "  # -O3
+-fbounds-check -mtune=native \
+-fmax-stack-var-size=65536 "  # -O3
 #----------------------------------------------------------------------------------
 mkdir -p $binDirLib
 mkdir -p $libDirLib
@@ -20,6 +24,7 @@ mkdir -p $modDirLib
 cd $srcDirLib
 buildFiles=""
 buildFiles=$buildFiles"kinds.f90 "
+buildFiles=$buildFiles"rng.f90 "
 buildFiles=$buildFiles"logicalMod.f90 "
 buildFiles=$buildFiles"keysMod.f90 "
 buildFiles=$buildFiles"strings.f90 "
@@ -34,7 +39,7 @@ buildFiles=$buildFiles"mpiSubs.f90 "
 buildFiles=$buildFiles"printMod.f90 "
 buildFiles=$buildFiles"matrix.f90 "
 buildFiles=$buildFiles"basicMaths.f90 "
-buildFiles=$buildFiles"rng.f90  "
+buildFiles=$buildFiles"rngFunctions.f90 "
 buildFiles=$buildFiles"laplaceTransforms.f90 "
 buildFiles=$buildFiles"linearAlgebra.f90 "
 buildFiles=$buildFiles"calcFunctions.f90  "
@@ -43,6 +48,7 @@ buildFiles=$buildFiles"solveFunctions.f90 "
 buildFiles=$buildFiles"functionPoints.f90 "
 buildFiles=$buildFiles"vectors.f90  "
 buildFiles=$buildFiles"lmaM.f90 "
+buildFiles=$buildFiles"fitting.f90  "
 buildFiles=$buildFiles"regression.f90  "
 buildFiles=$buildFiles"interpolation.f90 "
 buildFiles=$buildFiles"largeInt.f90 "

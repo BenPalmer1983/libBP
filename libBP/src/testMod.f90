@@ -18,6 +18,8 @@ Module testMod
   Use keysMod
   Use laplaceTransforms
   Use interpolation
+  Use regression
+  Use splinesFitting
   Use geomTypes
   Use geom
   Use potentialsTypes
@@ -40,6 +42,8 @@ Module testMod
   Public :: testNeighbourList
   Public :: testStaticCalc
   Public :: testCombinations
+  Public :: testLinearRegression
+  Public :: testMorseFit
 
 !---------------------------------------------------------------------------------------------------------------------------------------
   Contains
@@ -237,34 +241,39 @@ Module testMod
     coordsUnit%zCopy = 4
     !Call standardCoords("FCC", coordsUnit)
     !Call expandUnitCoords(coordsUnit, coords)
-    Do cKey=1,size(coords%points)
-      Do i=1,coords(cKey)%points
+    Do cKey=1,size(coords%length)
+      Do i=1,coords(cKey)%length
         print *,coords(cKey)%label(i),&
-        coords(cKey)%coords(i,1),coords(cKey)%coords(i,2),coords(cKey)%coords(i,3),&
-        coords(cKey)%fracCoords(i,1)
+        coords(cKey)%coords(i,1),coords(cKey)%coords(i,2),coords(cKey)%coords(i,3)
       End Do
     End Do
-    print *,coords%points
+    print *,coords%length
     Call makeNL(nl, coords, 6.5D0)
   End Subroutine testNeighbourList
 
 
 
   Subroutine testStaticCalc()
-! Uses inverse laplace transform to calculate isotope amounts at time t (after time = 0)
-! t time in seconds after t=0
-! w production rate of parent isotope
-! isotope chain data
+! Test static calculation interatomic potentials
     Implicit None ! Force declaration of all variables
 ! Vars Private
-    Type(coordsUnitType), Dimension(1:p_confs) :: coordsUnit
-    Type(coordsType), Dimension(1:p_confs) :: coords
-    Type(nlType), Dimension(1:p_confs) :: nl
+    Type(coordsUnitType), Allocatable, Dimension(:) :: coordsUnit
+    Type(coordsType), Allocatable, Dimension(:) :: coords
+    Type(nlType), Allocatable, Dimension(:) :: nl
     Type(potentialType) :: potential
+    Type(oBulkProperty), Dimension(1:32) :: bpObj
     Type(potentialSearchType) :: searchObj
     Real(kind=DoubleReal), Dimension(1:3) :: yArray
     Real(kind=DoubleReal) :: tempDp
     Character(Len=16) :: inputStr
+    Character(Len=2), Dimension(1:4) :: atomLabels
+    Integer(kind=StandardInteger) :: i
+!----------------------------------
+! Allocate arrays on HEAP
+!----------------------------------
+    Allocate(coordsUnit(1:p_confs))
+    Allocate(coords(1:p_confs))
+    Allocate(nl(1:p_confs))
 ! Load Vars
     Call loadVars()
     print *,envVars%cwd
@@ -291,8 +300,9 @@ Module testMod
     coordsUnit%xCopy = 4
     coordsUnit%yCopy = 4
     coordsUnit%zCopy = 4
-    Call standardCoords("FCC", coordsUnit,1)  ! geom.f90
-    Call standardCoords("FCC", coordsUnit,2)  ! geom.f90
+    atomLabels = "AL"
+    Call standardCoords("FCC", coordsUnit,1,atomLabels)  ! geom.f90
+    Call standardCoords("FCC", coordsUnit,2,atomLabels)  ! geom.f90
     Call expandUnitCoords(coordsUnit, coords) ! geom.f90
 ! Init potential
     Call addLinePage("Init potential")
@@ -307,38 +317,57 @@ Module testMod
     Call printPotentialSummary(potential)      ! potentials.f90
 ! Print
     Call printAtomLabelIDs(coords)
+
+    Call fitStandardPotentials(potential)
 ! Output Potential
-    Call outputPotential(potential,envVars%cwd)
-! Build neighbour list
+    !Call outputPotential(potential,envVars%cwd)
+! Build neighbour list and make keys
     Call addLinePage("Build neighbour list")
     Call makeNL(nl, coords, 6.5D0)       ! geom.f90
+    Call nlPotentialKeys(nl, potential)
 
-    Call printNLSummary(nl)
-
-    !Call printCoords(coords,1)
-    !Call calcEFS(coords, nl, potential, 0)
-    Call calcEFS(coords, nl, potential, 1)
-
-
-    searchObj%x = 2.6452D0
-    searchObj%atomID_A = 1
-    searchObj%atomID_B = 2
-    searchObj%fPotential = "MORSE"
-
-    yArray = SearchPotential(searchObj, potential)
-    !print *,searchObj%x,yArray(1),yArray(2),yArray(3)
+    !Call printNLSummary(nl)
+    Call calcEFS(nl, potential, 1)
+    print *,"Energy EFS ",nl(1)%totalEnergy
 
 
-    searchObj%x = 2.6452D0
-    searchObj%atomID_A = 3
-    searchObj%atomID_B = 3
-    searchObj%fPotential = "MORSE"
+    Call calcE(nl, potential, 1)
+    print *,"Energy E   ",nl(1)%totalEnergy
 
-    !yArray = SearchPotential(searchObj, potential)
-    !print *,searchObj%x,yArray(1),yArray(2),yArray(3)
+    Call calcBP(bpObj,potential)
+
+    Call HeatCoords(coords, 0.05D0, 1)
+    Call makeNL(nl, coords, 6.5D0, 1)       ! geom.f90
+    Call calcEFS(nl, potential, 1)
+
+    Do i=1,4
+      !print *,nl(1)%coordsMD(i,1),&
+    !  nl(1)%coordsMD(i,2),&
+      !nl(1)%coordsMD(i,3),&
+    !  nl(1)%forcesMD(i,1),&
+    !  nl(1)%forcesMD(i,2),&
+    !  nl(1)%forcesMD(i,3),&
+    !  nl(1)%atomEnergy(i,1),&
+    !  nl(1)%atomEnergy(i,2),&
+    !  nl(1)%atomEnergy(i,3),&
+    !  nl(1)%electronDensity(i,1)
+      print *, nl(1)%atomEnergy(i,3), nl(1)%electronDensity(i,1)
+    End Do
+
+    print *,"--------------"
+    !Call printCoords(coords, 1)
+    Call optGeom(coords, potential)
 
 
 
+
+
+!----------------------------------
+! Deallocate arrays on HEAP
+!----------------------------------
+    Deallocate(nl)
+    Deallocate(coords)
+    Deallocate(coordsUnit)
 
   End Subroutine testStaticCalc
 
@@ -356,6 +385,116 @@ Module testMod
     print *,""
     print *,""
   End Subroutine testCombinations
+
+
+
+  Subroutine testLinearRegression()
+! Test static calculation interatomic potentials
+    Implicit None ! Force declaration of all variables
+! Vars Private
+    Real(kind=DoubleReal), Dimension(1:4,1:2) :: dataPoints
+    Real(kind=DoubleReal), Dimension(1:4) :: Y
+    Real(kind=DoubleReal), Dimension(1:4,1:1) :: X
+    Real(kind=DoubleReal), Dimension(1:2) :: parameters
+
+    dataPoints(1,1) = 1.0D0
+    dataPoints(1,2) = 13.8D0
+    dataPoints(2,1) = 2.0D0
+    dataPoints(2,2) = 18.9D0
+    dataPoints(3,1) = 3.0D0
+    dataPoints(3,2) = 22.6781D0
+    dataPoints(4,1) = 4.0D0
+    dataPoints(4,2) = 25.2D0
+
+    parameters = BestFitLine(dataPoints)
+    print *,"Best fit test: "
+    print *,parameters(1),parameters(2)
+
+    dataPoints(1,1) = 1.0D0
+    dataPoints(1,2) = 1.58907D0
+    dataPoints(2,1) = 2.0D0
+    dataPoints(2,2) = 0.78911D0
+    dataPoints(3,1) = 3.0D0
+    dataPoints(3,2) = 0.39186D0
+    dataPoints(4,1) = 8.0D0
+    dataPoints(4,2) = 0.011833D0
+    parameters = BestFitExp(dataPoints)
+    print *,"Best fit exp test: "
+    print *,parameters(1),parameters(2)
+
+    dataPoints(1,1) = 1.0D0
+    dataPoints(1,2) = 0.537325D0
+    dataPoints(2,1) = 2.0D0
+    dataPoints(2,2) = 0.10423D0
+    dataPoints(3,1) = 3.0D0
+    dataPoints(3,2) = 0.0202186D0
+    dataPoints(4,1) = 8.0D0
+    dataPoints(4,2) = 5.5531D-6
+    parameters = BestFitExp(dataPoints)
+    print *,"Best fit exp^2 test: "
+    print *,parameters(1),parameters(2)
+
+
+  End Subroutine testLinearRegression
+
+  Subroutine testMorseFit()
+! Test static calculation interatomic potentials
+    Implicit None ! Force declaration of all variables
+! Vars Private
+    Real(kind=DoubleReal), Dimension(1:8,1:2) :: dataPoints
+    Real(kind=DoubleReal), Dimension(1:8,1:2) :: dataPointsDYDX
+    Real(kind=DoubleReal), Dimension(1:3) :: parameters
+    Real(kind=DoubleReal), Dimension(1:2) :: parametersLJ
+
+    dataPoints(1,1) = 1.0D0
+    dataPoints(1,2) = 43.9370D0
+    dataPoints(2,1) = 1.6D0
+    dataPoints(2,2) = 8.9981D0
+    dataPoints(3,1) = 2.0D0
+    dataPoints(3,2) = 2.6781D0
+    dataPoints(4,1) = 2.6D0
+    dataPoints(4,2) = 0.080557D0
+    dataPoints(5,1) = 3.0D0
+    dataPoints(5,2) = -0.23856D0
+    dataPoints(6,1) = 3.4D0
+    dataPoints(6,2) = -0.26361D0
+    dataPoints(7,1) = 5.0D0
+    dataPoints(7,2) = -0.066057D0
+    dataPoints(8,1) = 5.6D0
+    dataPoints(8,2) = -0.0339987D0
+
+    dataPointsDYDX(1,1) = 1.0D0
+    dataPointsDYDX(1,2) = -111.0190D0
+    dataPointsDYDX(2,1) = 1.6D0
+    dataPointsDYDX(2,2) = -25.2747D0
+    dataPointsDYDX(3,1) = 2.0D0
+    dataPointsDYDX(3,2) = -8.94672D0
+    dataPointsDYDX(4,1) = 2.6D0
+    dataPointsDYDX(4,2) = -1.53451D0
+    dataPointsDYDX(5,1) = 3.0D0
+    dataPointsDYDX(5,2) = -0.28964D0
+    dataPointsDYDX(6,1) = 3.4D0
+    dataPointsDYDX(6,2) = 0.083474D0
+    dataPointsDYDX(7,1) = 5.0D0
+    dataPointsDYDX(7,2) = 0.07155D0
+    dataPointsDYDX(8,1) = 5.6D0
+    dataPointsDYDX(8,2) = 0.038265D0
+
+    parameters = MorseFit(dataPoints)
+    print *,parameters(1),parameters(2),parameters(3)
+
+
+    parameters = MorseFit_Extended(dataPoints, dataPointsDYDX)
+    print *,parameters(1),parameters(2),parameters(3)
+
+
+    parametersLJ = LJFit(dataPoints)
+    print *,parametersLJ(1),parametersLJ(2)
+
+
+
+  End Subroutine testMorseFit
+
 
 
 

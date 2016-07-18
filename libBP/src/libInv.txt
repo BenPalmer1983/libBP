@@ -36,16 +36,14 @@ Module arrayFunctions        arrayFunctions.f90
   Subroutine PrintMatrix_2D(xMatrix)
   Subroutine extractArrayColumnDP(inputArray,outputArray,column)
   Subroutine extractArrayColumnInt(inputArray,outputArray)
-  Subroutine swapArrayRows1D(matrix,rowA,rowB)
-  Subroutine swapArrayRows2D(matrix,rowA,rowB)
   Subroutine swapRows_Integer_1D(matrix,rowA,rowB)
   Subroutine swapRows_Integer_2D(matrix,rowA,rowB)
   Subroutine swapRows_Single_1D(matrix,rowA,rowB)
   Subroutine swapRows_Single_2D(matrix,rowA,rowB)
   Subroutine swapRows_Double_1D(matrix,rowA,rowB)
   Subroutine swapRows_Double_2D(matrix,rowA,rowB)
-  Subroutine sort_Integer_1D(list)
-  Subroutine sort_Integer_2D(list, sortRow)
+  Subroutine swapRows_Char_1D(matrix,rowA,rowB)
+  Subroutine swapRows_Char_2D(matrix,rowA,rowB)
 ========================================================================
 Module basicMaths        basicMaths.f90
 ========================================================================
@@ -90,10 +88,22 @@ Module coordFunctions        coordFunctions.f90
   Function RdCoords (xVect, yVect) RESULT (rd)
   Function HeatCoords (inCoords, maxVar) RESULT (outCoords)
 ========================================================================
+Module envTypes        env.f90
+========================================================================
+========================================================================
 Module env        env.f90
 ========================================================================
+  Subroutine loadVars()
   Subroutine systemR(commandIn, commandOut)
   Subroutine progInstalled(progName)
+  Function GetHomeDirText (input) RESULT (output)
+========================================================================
+Module fileOutTypes        fileOut.f90
+========================================================================
+========================================================================
+Module fileOut        fileOut.f90
+========================================================================
+  Subroutine outputFile(fileOut_In)
 ========================================================================
 Module functionPoints        functionPoints.f90
 ========================================================================
@@ -112,6 +122,7 @@ Module general        general.f90
   Subroutine correctFilePath (filePath)
   Subroutine readFile(inputFilePath, fileArray, n)
   Subroutine readCSV(inputFilePath, fieldSeparator, csvArray, rows, columns)
+  Subroutine readFieldsCharacter(inputRow,outputArray,fieldCount)
   Subroutine PrintMatrix(xMatrix)
   Subroutine extractArrayColumnDP(inputArray,outputArray,column)
   Subroutine extractArrayColumnInt(inputArray,outputArray)
@@ -129,6 +140,7 @@ Module general        general.f90
   Subroutine strToDPArr(stringIn,dpArr)
   Subroutine strToStrArr(stringIn,strArr)
   Subroutine timeAcc(time,timeStart,timeEnd)
+  Subroutine completePath(pathIn)
   Function FileExists(filePath) Result (boolOut)
   Function CountRowFields(fileRow) Result (fieldCount)
 ========================================================================
@@ -137,43 +149,56 @@ Module geomTypes        geom.f90
 ========================================================================
 Module geom        geom.f90
 ========================================================================
-  Interface makeNL
-  Subroutine makeCoords(coords, typeCell, copiesX, copiesY, copiesZ, aLat)
-  Subroutine makeCoordsProcess(coords, unitCellIn, copiesX, copiesY, copiesZ, aLat)
-  Subroutine initNL(nl, allocatedLengthIn)
-  Subroutine makeNL_A(nl, atomTypesIn, atomCoordsIn, coordStart, coordEnd, rVerlet, aLat)
-  Subroutine makeNL_B(nl, atomTypesIn, atomCoordsIn, coordStart, coordEnd, rVerlet, aLat)
-  Subroutine makeNLProcess(nl, atomTypes, atomCoords, coordStart, coordEnd, rVerlet, aLat)
-  Subroutine updateNL(nl, atomCoords, coordStart)
-  Subroutine mdRun(atomTypesIn, atomCoordsIn, coordStart, coordEnd, mdSettings)
-  Subroutine mdStep(nl, mdSettings, atomCoords, velocityArr, energy)
-  Subroutine configOptVQ(atomTypesIn, atomCoordsIn, coordStart, coordEnd, mdSettings)
-  Subroutine efsCalc(nl,mdSettings,forceArr,energy)
-  Subroutine efsCalcEnergy(nl,mdSettings,energy)
-  Subroutine maxForce(forceArr, fMax)
+  Subroutine initUnitCoords(coords)
+  Subroutine initCoords(coords)
+  Subroutine standardCoords(typeCell, coords, cKey)
+  Subroutine expandUnitCoords(coordsUnit, coords)
+  Subroutine printCoords(coords, cKey)
+  Subroutine printCoordsSR(coords, cKey)
+  Subroutine zeroForces(coords, cKey)
+  Subroutine makeNL(nl, coords, rVerlet)
+  Subroutine printNLSummary(nl, cKeyIn)
+  Subroutine printNLSummary_Individual(nl, cKey)
   Function SubCellKey (scAlat, scW, x, y, z) Result (key)
   Function ljEnergy(sigma, r) Result (vr)
   Function ljForce(sigma, r) Result (fr)
-  Subroutine makeNLOriginal(nl, atomTypesIn, atomCoordsIn, coordStart, coordEnd, rcut, aLat)
 ========================================================================
 Module interpolation        interpolation.f90
 ========================================================================
   Function InterpLagrange(x, points, derivativeIn) RESULT (output)
+  Function Lagrange_FX(x, points) RESULT (output)
+  Function Lagrange_dFX(x, points) RESULT (output)
+  Function Lagrange_nFX(x, points, n) RESULT (output)
   Function PointInterp(points,x,subsetSize,derivativeIn,inputSetStartIn,inputSetLengthIn,verboseIn) RESULT (yArray)
   Function InterpPoints(dataPointsIn, pointsOutCount, interpNodes) RESULT (dataPointsOut)
   Function FullInterp(dataPoints) RESULT (coefficients)
   Function FullInterpPoints(dataPoints, pointsOutCount) RESULT (dataPointsOut)
+  Function PointInterp3DArr(points,x,fN,subsetSize,derivativeIn) RESULT (yArray)
+  Function CheckXpos(xStart, xEnd, xPos, subsetSize) Result (xPosNew)
+  Subroutine xPosUpperLower(xPos, subsetSize, xPosUpper, xPosLower)
+========================================================================
+Module isotopesTypes        isotopes.f90
+========================================================================
+========================================================================
+Module isotopes        isotopes.f90
+========================================================================
+  Subroutine loadIsotopes(isotopesList)
+  Subroutine loadIsotopesKeys(isotopesList)
+  Subroutine printIsotopeDetails(isotopeDetails)
+  Function SearchIsotopes(protons, neutrons, isotopesList) Result (isotopeDetails)
+  Subroutine loadElements(elementsList)
+  Function SearchElements(elementSymbol, elementsList) Result (elementDetails)
+  Subroutine loadIsotopesData(isotopesList)
+  Subroutine loadElementsData(elementsList)
+========================================================================
+Module keysMod        keysMod.f90
+========================================================================
+  Function DoubleKey(keyA, keyB) RESULT (keyU)
+  Function TripleKey(keyA, keyB, keyC) RESULT (keyU)
+  Function IsotopeKey(protons,neutrons) RESULT (keyI)
 ========================================================================
 Module kinds        kinds.f90
 ========================================================================
-========================================================================
-Module laplaceTransforms        laplaceTransforms_changed
-========================================================================
-  Function GaverStehfestWeighting(N, weightingIn) RESULT (weighting)
-  Function GaverStehfestWeightingQ(N, weightingIn) RESULT (weighting)
-  Function GaverStehfest(funcInS, t, p, mIn) RESULT (ft)
-  Function ltDecay(s, p) RESULT (fs)
-  Function ltExp(s, p) RESULT (fs)
 ========================================================================
 Module laplaceTransforms        laplaceTransforms.f90
 ========================================================================
@@ -217,6 +242,12 @@ Module logicalMod        logicalMod.f90
 ========================================================================
   Function FlipLogical(logicalIn) RESULT (logicalOut)
 ========================================================================
+Module materialsTypes        materials.f90
+========================================================================
+========================================================================
+Module materials        materials.f90
+========================================================================
+========================================================================
 Module maths        maths.f90
 ========================================================================
 ========================================================================
@@ -239,6 +270,14 @@ Module matrix        matrix.f90
   Subroutine PositiveYMatrix(X,Y)
   Subroutine LnYMatrix(Y)
 ========================================================================
+Module mpiSubsTypes        mpiSubs.f90
+========================================================================
+========================================================================
+Module mpiSubs        mpiSubs.f90
+========================================================================
+  Subroutine m_initMpi(mpiIn)
+  Function M_Loop(mpiIn, loop) Result (result)
+========================================================================
 Module newtonGauss        newtonGauss.f90
 ========================================================================
   Function NewtonGaussOpt(J,R) RESULT (P)!
@@ -254,6 +293,25 @@ Module plot        plot.f90
   Subroutine plotFit(dataObj, dataArray, label, rowStart, rowEnd, colX, colY, fitType, dataPoints)
   Subroutine plotStyle(dataObj, marker, linestyle, dataSetIn)
   Subroutine plotMake(dataObj)
+========================================================================
+Module potentialsTypes        potentials.f90
+========================================================================
+========================================================================
+Module potentials        potentials.f90
+========================================================================
+  Subroutine initPotential(potential)
+  Subroutine loadPotential(filePath, potential)
+  Subroutine updatePotential(potential)
+  Subroutine printPotentialSummary(potential)
+  Subroutine printPotentialSummary_Full(potential)
+  Function SearchPotential (searchObj, potential, zblOverrideIn) Result (yArray)
+  Subroutine SearchPotential_A(searchObj, potential, yArray)
+  Function GetPotentialZBL (searchObj, potential) Result (yArray)
+  Function GetPotentialExpP (searchObj, potential) Result (yArray)
+  Function SearchPotential_Name (searchObj, potential) Result (yArray)
+  Function CheckIDMatch (idSearch_A, idSearch_B, idPot_A, idPot_B) Result (result)
+  Function Pot_Morse (parameters, x, derivativeIn) Result (yArray)
+  Subroutine outputPotential(potential,fileDirectory)
 ========================================================================
 Module printModTypes        printMod.f90
 ========================================================================
@@ -273,6 +331,9 @@ Module printMod        printMod.f90
   Subroutine headerRow(table)
   Subroutine dataRow(table, row)
   Subroutine dataRows(table)
+  Subroutine initPage(pageIn)
+  Subroutine addLinePage(lineText, styleIn, pageIn)
+  Subroutine printPage(pageIn)
 ========================================================================
 Module qeTypes        qe.f90
 ========================================================================
@@ -301,12 +362,24 @@ Module rng        rng.f90
   Function RandomFloat(lower,upper) RESULT (randFloat)
   Function IntegerList(listStart,listEnd,shuffles) RESULT (list)
 ========================================================================
+Module scienceFunctions        scienceFunctions.f90
+========================================================================
+  Function F_ZBL (parametersIn) RESULT (y)
+  Function F_ZblFull (parametersIn) RESULT (yArray)
+========================================================================
 Module simulatedAnnealing        simulatedAnnealing.f90
 ========================================================================
 ========================================================================
 Module solveFunctions        solveFunctions.f90
 ========================================================================
   Function SolvePolynomial(coefficients, lower, upper, convergenceThresholdIn) RESULT (output)
+========================================================================
+Module sort        sort.f90
+========================================================================
+  Interface sortArray
+  Subroutine sortArray_DP_1D(arrayIn,orderIn,startRowIn,endRowIn)
+  Subroutine sortArray_DP_2D(arrayIn,orderIn,sortColIn,startRowIn,endRowIn)
+  Subroutine sortArray_Int_1D(arrayIn,orderIn,startRowIn,endRowIn)
 ========================================================================
 Module specialistFunctions        specialistFunctions.f90
 ========================================================================
@@ -335,21 +408,43 @@ Module splinesFitting        splinesFitting.f90
   Function FillSplineResponse(dataPointsIn, startIn, endIn) RESULT (dataPointsOut)
   Function SplinePoints(dataPointsIn, pointsOutCount,splineOrderIn) RESULT (dataPointsOut)
   Subroutine CompleteNodeData(splineNodes, startIn, endIn)
+  Subroutine calcBP(bpObj)
+  Subroutine calcE(coords, nl, potential, cKeyIn)
+  Subroutine calcE_MPI(coords, nl, potential, cKey)
+  Subroutine calcE_Action(coords, nl, potential, cKey)
+  Subroutine calcEFS(coords, nl, potential, cKeyIn, resetForcesIn)
+  Subroutine calcEFS_MPI(coords, nl, potential, cKey, resetForces)
+  Subroutine calcEFS_Action(coords, nl, potential, cKey)
+========================================================================
+Module staticCalcsTypes        staticCalcs.f90
+========================================================================
+========================================================================
+Module staticCalcs        staticCalcs.f90
+========================================================================
+  Subroutine atomLabelIDs(potential, coords)
+  Subroutine printAtomLabelIDs(coords)
 ========================================================================
 Module strings        strings.f90
 ========================================================================
   Interface BlankStringArray
+  Interface WipeStringArray
   Function StrToUpper (input) RESULT (output)
   Function StrToLower (input) RESULT (output)
+  Function StrInStr (haystack, needle, caseSensitiveIn) RESULT (inString)
   Function StrReplace (input, needle, replace) RESULT (output)
   Function NumericOnly (input) RESULT (output)
   Function SingleSpaces (input) RESULT (output)
   Function RemoveSpaces (input) RESULT (output)
   Function RemoveSpacesQ (input) RESULT (output)
   Function TrimSpaces(trimStr, padCharIn) Result (workingStr)
+  Function TrimStr(strIn) Result (strOut)
+  Function TrimmedLength(strIn) Result (strLen)
   Function BlankString (input) RESULT (output)
   Function BlankString1DArray (input) RESULT (output)
   Function BlankString2DArray (input) RESULT (output)
+  Function WipeString (input) RESULT (output)
+  Function WipeString1DArray (input) RESULT (output)
+  Function WipeString2DArray (input) RESULT (output)
   Function Spaces (length) RESULT (output)
   Function SpacesRight (input) RESULT (output)
   Function RemoveComments (input) RESULT (output)
@@ -358,16 +453,26 @@ Module strings        strings.f90
   Function IntToStr (input) RESULT (output)
   Function DpToStr (input, numFormatIn) RESULT (output)
   Function StrToInt (input) RESULT (output)
-  Function StrToDp (input) RESULT (output)
+  Function StrToDp (input) RESULT (outputDouble)
   Function StrToBool (inputIn) RESULT (output)
   Function RandName(randSwitchIn, prefixIn) Result (randNameOut)
   Function TempFileName(randSwitchIn) Result (fileNameOut)
   Function CleanString(stringIn) Result (stringOut)
   Function TimeToHuman(timeIn) Result (stringOut)
+  Function IfStringEmpty(stringIn) Result (result)
+  Function IsBlank(stringIn) Result (result)
+  Function ConcatStr(stringA, stringB, forceTrimIn) Result (stringC)
+  Function StrMatch(strA_In,strB_In,caseSensitiveIn) Result (matchResult)
+  Function TestBoolStr(strTest) Result (result)
   Subroutine explode(inputString, fieldSplit, outputArray, outputCount)
   Subroutine randCharacter(letter, randSwitchIn, setIn)
+  Function CharCheckAlpha(charIn) Result (boolResult)
+  Function CharCheckNumeric(charIn) Result (boolResult)
+  Function CharCheckAlphaNumeric(charIn) Result (boolResult)
+  Function CharCheckReal(charIn) Result (boolResult)
   Subroutine TrimString(trimStr, outputLength, padCharIn)
-  Subroutine StrCenter(strIn, tarLenIn)
+  Subroutine StrCenter(line, lineLengthIn)
+  Subroutine StrAlign(line, align, lineLengthIn)
   Function RandomLCG_strings(seedIn) RESULT (output)
   Function RandomLCG_R_strings() RESULT (output)
 ========================================================================
@@ -377,7 +482,8 @@ Module testMod        testMod.f90
   Subroutine testCalcIsotopeAmount()
   Subroutine testGaverStehfest()
   Subroutine testDecayChain()
-  Subroutine testDecayGS()
+  Subroutine testNeighbourList()
+  Subroutine testStaticCalc()
   Subroutine testCombinations()
 ========================================================================
 Module units        units.f90

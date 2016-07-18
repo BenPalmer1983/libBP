@@ -3,11 +3,9 @@ Module rng
 ! Ben Palmer, University of Birmingham
 ! --------------------------------------------------------------!
   Use kinds
-  Use arrayFunctions
-  Use constants
 ! Force declaration of all variables
   Implicit None
-! Public variables  
+! Public variables
   Integer(kind=LongInteger) :: randomLCG_n=0
   Integer(kind=LongInteger) :: randomLCG_xn
   Integer(kind=LongInteger) :: randomLCG_R_n=0
@@ -25,14 +23,13 @@ Module rng
   Public :: RandomLCG_R
   Public :: RandomInteger
   Public :: RandomFloat
-  Public :: IntegerList
-! ---- Subroutines    
-! Interfaces  
+! ---- Subroutines
+! Interfaces
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Contains 
+  Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
-  
+
   Function RandomLCG(seedIn) RESULT (output)
 ! Random number - linear congruential generator
     Implicit None ! Force declaration of all variables
@@ -69,8 +66,8 @@ Module rng
 ! calculate
     randomLCG_xn = mod((a*randomLCG_xn+c),m)
     output = (1.0D0*randomLCG_xn)/(1.0D0*m)
-  End Function RandomLCG  
-  
+  End Function RandomLCG
+
   Function RandomLCG_R() RESULT (output)
 ! Random number - linear congruential generator
 ! This function starts with a random seed
@@ -90,7 +87,7 @@ Module rng
     If(randomLCG_R_n.eq.0)Then
 ! Make "random" seed
       Call SYSTEM_CLOCK(clockTime) ! "nano seconds" - well, an estimate
-      seed = mod(clockTime,m)      
+      seed = mod(clockTime,m)
       Do i=1,10
         seed = mod((a*seed+c),m)
       End Do
@@ -103,7 +100,7 @@ Module rng
     randomLCG_R_xn = mod((a*randomLCG_R_xn+c),m)
     output = (1.0D0*randomLCG_R_xn)/(1.0D0*m)
   End Function RandomLCG_R
-  
+
   Function RandomInteger(lower,upper) RESULT (randInt)
 ! force declaration of all variables
     Implicit None
@@ -144,32 +141,5 @@ Module rng
     randDouble = RandomLCG()
     randFloat = lower+1.0D0*diff*randDouble
   End Function RandomFloat
-
-  Function IntegerList(listStart,listEnd,shuffles) RESULT (list)
-! Array filled with integers, possibly shuffled
-    Implicit None ! Force declaration of all variables
-! Declare variables
-    Integer(kind=StandardInteger) :: i
-    Integer(kind=StandardInteger) :: listStart, listEnd, listSize, shuffles, rowA, rowB, shuffleCount
-    Integer(kind=StandardInteger), Dimension(1:(listEnd-listStart+1)) :: list
-! Initialise variables
-    shuffleCount = 0
-    listSize = listEnd-listStart+1
-! Make list
-    Do i=1,listSize
-      list(i) = listStart+i-1
-    End Do
-! Shuffle list
-    If(shuffles.gt.0)Then
-      Do While(shuffleCount.lt.shuffles)
-        rowA = RandomInteger(1,listSize)
-        rowB = RandomInteger(1,listSize)
-        If(rowA.ne.rowB)Then
-          Call swapRows(list,rowA,rowB)
-          shuffleCount = shuffleCount + 1
-        End If
-      End Do
-    End If
-  End Function IntegerList
 
 End Module rng

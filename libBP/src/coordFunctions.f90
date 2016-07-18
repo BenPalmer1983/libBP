@@ -13,11 +13,11 @@ Module coordFunctions
 ! Public
   Public :: TransformCoords
   Public :: RdCoords
-  Public :: HeatCoords
-! Interfaces  
+  Public :: HeatCoordsF
+! Interfaces
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Contains 
+  Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -47,7 +47,7 @@ Module coordFunctions
     rd = sqrt((xVect(1)-yVect(1))**2+(xVect(2)-yVect(2))**2+(xVect(3)-yVect(3))**2)
   End Function RdCoords
 
-  Function HeatCoords (inCoords, maxVar) RESULT (outCoords)
+  Function HeatCoordsF (inCoords, maxVar) RESULT (outCoords)
 ! Transform coords with transformation matrix
     Implicit None  ! Force declaration of all variables
 ! Private variables
@@ -61,7 +61,7 @@ Module coordFunctions
         outCoords(i,j) = inCoords(i,j) + 2.0D0 * (RandomDist("G") - 0.5D0) *  maxVar
       End Do
     End Do
-  End Function HeatCoords
+  End Function HeatCoordsF
 
-  
+
 End Module coordFunctions

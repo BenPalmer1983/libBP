@@ -82,12 +82,8 @@ Module staticCalcs
   Public :: atomLabelIDs
   Public :: printAtomLabelIDs
   Public :: calcEFS
-  Public :: calcEF
   Public :: calcE
-  Public :: optGeom
   Public :: calcBP
-  Public :: nlPotentialKeys
-  Public :: nlPotentialKeys_opt
 
 
 !---------------------------------------------------------------------------------------------------------------------------------------
@@ -220,20 +216,9 @@ Module staticCalcs
 
 
 !------------------------------------------
-! Key arrays
-!------------------------------------------
-  Include "staticCalcs.keys.f90"
-
-!------------------------------------------
 ! Energy. Force, Stress calculations
 !------------------------------------------
   Include "staticCalcs.calcEFS.f90"
-! calcEFS, calcEFS_MPI, calcEFS_Action
-
-!------------------------------------------
-! Energy. Force, Stress calculations
-!------------------------------------------
-Include "staticCalcs.calcEF.f90"
 ! calcEFS, calcEFS_MPI, calcEFS_Action
 
 !------------------------------------------
@@ -246,11 +231,6 @@ Include "staticCalcs.calcEF.f90"
 ! Bulk Properties
 !------------------------------------------
   Include "staticCalcs.calcBP.f90"
-
-!------------------------------------------
-! Opt Geom
-!------------------------------------------
-  Include "staticCalcs.optGeom.f90"
 
 !------------------------------------------
 ! Elastic Constants

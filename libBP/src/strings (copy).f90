@@ -3,14 +3,22 @@ Module strings
 ! Ben Palmer, University of Birmingham
 ! --------------------------------------------------------------!
   Use kinds
-  Use rng
   Use logicalMod
 ! Force declaration of all variables
   Implicit None
 ! Public variables
+  Integer(kind=LongInteger) :: randomLCG_n_strings=0
+  Integer(kind=LongInteger) :: randomLCG_xn_strings
+  Integer(kind=LongInteger) :: randomLCG_R_n_strings=0
+  Integer(kind=LongInteger) :: randomLCG_R_xn_strings
 ! Make private
   Private
 ! Public
+! ---- Variables
+  Public :: randomLCG_n_strings
+  Public :: randomLCG_xn_strings
+  Public :: randomLCG_R_n_strings
+  Public :: randomLCG_R_xn_strings
 ! ---- Functions
   Public :: StrToUpper      ! All chars to upper
   Public :: StrToLower      ! All chars to lower
@@ -1086,9 +1094,9 @@ Module strings
     letter = " "
 ! Make character
     If(randSwitch)Then
-      randNumber = RandomLCG_R()
+      randNumber = RandomLCG_R_strings()
     Else
-      randNumber = RandomLCG()
+      randNumber = RandomLCG_strings()
     End If
     If(set.eq.1)Then
       characterNum = Ceiling(62.0D0*randNumber+1.0D0)
@@ -1338,5 +1346,86 @@ Module strings
     End If
     line = lineTemp
   End Subroutine StrAlign
+
+
+
+
+
+
+
+!---------------------------------------------------------------------------------------------------------------------------------------
+! String random number functions (as these are loaded AFTER strings MOD with the rng MOD
+!---------------------------------------------------------------------------------------------------------------------------------------
+
+  Function RandomLCG_strings(seedIn) RESULT (output)
+! Random number - linear congruential generator
+    Implicit None ! Force declaration of all variables
+! Declare variables
+    Integer(kind=LongInteger) :: m, a, c, clockTime
+    Integer(kind=LongInteger) :: seed
+    Integer(kind=StandardInteger), Optional :: seedIn
+    Real(kind=DoubleReal) :: output
+! init
+    seed = 0
+    output = 0.0D0
+    m = 4294967296_LongInteger
+    a = 1103515245_LongInteger
+    c = 12345_LongInteger
+! Read input, reset counter
+    If(Present(seedIn))Then
+      seed = seedIn
+      If(seed.lt.0)Then ! If seed -1 (for example) get random seed
+        Call SYSTEM_CLOCK(clockTime) ! "nano seconds" - well, an estimate
+        seed = mod(clockTime,m) ! fit in m
+      End If
+      randomLCG_n_strings = 0
+    End If
+! If first iteration
+    If(randomLCG_n_strings.eq.0)Then
+      If(seed.eq.0)Then
+        seed = 12791244+45778951 ! Use default seed
+      End If
+      randomLCG_n_strings = 0
+      randomLCG_xn_strings = seed
+    End If
+! Increment counter
+    randomLCG_n_strings = randomLCG_n_strings + 1
+! calculate
+    randomLCG_xn_strings = mod((a*randomLCG_xn_strings+c),m)
+    output = (1.0D0*randomLCG_xn_strings)/(1.0D0*m)
+  End Function RandomLCG_strings
+
+  Function RandomLCG_R_strings() RESULT (output)
+! Random number - linear congruential generator
+! This function starts with a random seed
+    Implicit None ! Force declaration of all variables
+! Declare variables
+    Integer(kind=StandardInteger) :: i
+    Integer(kind=LongInteger) :: m, a, c, clockTime
+    Integer(kind=LongInteger) :: seed
+    Real(kind=DoubleReal) :: output
+! init
+    seed = 0
+    output = 0.0D0
+    m = 4294967296_LongInteger
+    a = 1103515245_LongInteger
+    c = 12345_LongInteger
+! If first iteration
+    If(randomLCG_R_n_strings.eq.0)Then
+! Make "random" seed
+      Call SYSTEM_CLOCK(clockTime) ! "nano seconds" - well, an estimate
+      seed = mod(clockTime,m)
+      Do i=1,10
+        seed = mod((a*seed+c),m)
+      End Do
+      randomLCG_R_n_strings = 0
+      randomLCG_R_xn_strings = seed
+    End If
+! Increment counter
+    randomLCG_R_n_strings = randomLCG_R_n_strings + 1
+! calculate
+    randomLCG_R_xn_strings = mod((a*randomLCG_R_xn_strings+c),m)
+    output = (1.0D0*randomLCG_R_xn_strings)/(1.0D0*m)
+  End Function RandomLCG_R_strings
 
 End Module strings

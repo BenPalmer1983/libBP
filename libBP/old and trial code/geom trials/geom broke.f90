@@ -25,7 +25,7 @@ Module geomTypes
 ! Public Variables and Parameters
   Public :: p_confs, p_cuMax, p_cMax, p_nlMax
 ! Public derived types
-  Public :: coordsUnitType, coordsType, nlType, nlType_Opt
+  Public :: coordsUnitType, coordsType, nlType
 
   Type :: coordsUnitType
     Integer(kind=StandardInteger) :: points = 0
@@ -40,19 +40,22 @@ Module geomTypes
     Real(kind=DoubleReal), Dimension(1:p_cuMax,1:3) :: unitForces   ! Unit coords - fractional
   End Type coordsUnitType
 
+! Configuration
+! Initial starting positions and forces upon atoms
+
   Type :: coordsType
-    Integer(kind=StandardInteger) :: length = 0
+    Integer(kind=StandardInteger) :: points = 0
     Real(kind=DoubleReal) :: aLat = 0.0D0
     Real(kind=DoubleReal), Dimension(1:3,1:3) :: unitCell
     Character(Len=16), Dimension(1:p_cMax) :: label           ! Unit labels
     Integer(kind=StandardInteger), Dimension(1:p_cMax) :: labelID
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: coords       ! coords (fractional)
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: forces       ! forces
+    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: coords   ! coords - fractional (0<= x <= 1)
+    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: forces   ! forces
     Integer(kind=StandardInteger) :: IDcount
-    Character(Len=16), Dimension(1:p_cuMax) :: atomIDs
+    Character(Len=16), Dimension(1:64) :: atomIDs
     Integer(kind=StandardInteger) :: atomID_Count
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: electronDensity   ! Moved to nl object
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: atomEnergy        ! Moved to nl object
+    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: electronDensity
+    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: atomEnergy
     Real(kind=DoubleReal) :: pairEnergy
     Real(kind=DoubleReal) :: embeddingEnergy
     Real(kind=DoubleReal) :: totalEnergy
@@ -63,33 +66,14 @@ Module geomTypes
     Integer(kind=StandardInteger) :: length = 0
     Integer(kind=StandardInteger) :: arrayLength = 0
 ! Coord details
-    Integer(kind=StandardInteger) :: coordsLength
     Real(kind=DoubleReal) :: aLat
     Real(kind=DoubleReal), Dimension(1:3,1:3) :: unitCell
-    Character(Len=16), Dimension(1:p_cMax) :: label           ! Unit labels
-    Integer(kind=StandardInteger), Dimension(1:p_cMax) :: labelID
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: coords   ! Initial Coords
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: forces   ! Initial Forces
-    Character(Len=16), Dimension(1:p_cuMax) :: atomIDs
-    Integer(kind=StandardInteger) :: atomID_Count
-! Potential Keys
-    Logical :: keysSet = .false.
-    !Integer(kind=StandardInteger), Dimension(1:128,0:32) :: pairKeyArray  ! Total potentials for each combination pair stored in "0"
-    !Integer(kind=StandardInteger), Dimension(1:128,0:32,1:3) :: densityKeyArray  ! Total potentials for each combination pair stored in "0"
-    !Integer(kind=StandardInteger), Dimension(1:128,0:32,1:3) :: embeddingKeyArray  ! Total potentials for each combination pair stored in "0"
-    Integer(kind=StandardInteger), Allocatable, Dimension(:,:) :: pairKeyArray  ! Total potentials for each combination pair stored in "0"
-    Integer(kind=StandardInteger), Allocatable, Dimension(:,:,:) :: densityKeyArray  ! Total potentials for each combination pair stored in "0"
-    Integer(kind=StandardInteger), Allocatable, Dimension(:,:,:) :: embeddingKeyArray  ! Total potentials for each combination pair stored in "0"
-! Atom details - EFS Calculation
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: electronDensity   ! Moved to nl object
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: atomEnergy        ! Moved to nl object
-    Real(kind=DoubleReal) :: pairEnergy
-    Real(kind=DoubleReal) :: embeddingEnergy
-    Real(kind=DoubleReal) :: totalEnergy
-! MD forces/coord - updated as they change
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: coordsMD   ! Initial Coords
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: forcesMD   ! Initial Forces
-! Neighbour List Details
+    Integer(kind=StandardInteger) :: coordsLength
+    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: coords   ! Fractional coords
+    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: coordsReal   ! Fractional coords
+    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: forces   ! Fractional coords
+! Atom details
+    !Integer(kind=StandardInteger), Dimension(1:p_nlMax) :: atomA_ID
     Integer(kind=StandardInteger), Allocatable, Dimension(:) :: atomA_ID
     Integer(kind=StandardInteger), Allocatable, Dimension(:) :: atomB_ID
     Integer(kind=StandardInteger), Allocatable, Dimension(:) :: atomA_Type
@@ -114,68 +98,11 @@ Module geomTypes
     Real(kind=DoubleReal) :: totalRDSq
 ! NL Update Parameters
     Real(kind=DoubleReal) :: aLat_Original    ! Lattice parameter when NL built
-  End Type nlType
+    Real(kind=DoubleReal) :: aLat_Current
 
-  Type :: nlType_Opt
-! 6.2MB per neighbour list
-    Integer(kind=StandardInteger) :: length = 0
-    Integer(kind=StandardInteger) :: arrayLength = 0
-! Coord details
-    Integer(kind=StandardInteger) :: coordsLength
-    Real(kind=DoubleReal) :: aLat
-    Real(kind=DoubleReal), Dimension(1:3,1:3) :: unitCell
-    Character(Len=16), Dimension(1:p_cMax) :: label           ! Unit labels
-    Integer(kind=StandardInteger), Dimension(1:p_cMax) :: labelID
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: coords   ! Initial Coords
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: forces   ! Initial Forces
-    Character(Len=16), Dimension(1:p_cuMax) :: atomIDs
-    Integer(kind=StandardInteger) :: atomID_Count
-! Potential Keys
-    Logical :: keysSet = .false.
-    !Integer(kind=StandardInteger), Dimension(1:128,0:32) :: pairKeyArray  ! Total potentials for each combination pair stored in "0"
-    !Integer(kind=StandardInteger), Dimension(1:128,0:32,1:3) :: densityKeyArray  ! Total potentials for each combination pair stored in "0"
-    !Integer(kind=StandardInteger), Dimension(1:128,0:32,1:3) :: embeddingKeyArray  ! Total potentials for each combination pair stored in "0"
-    Integer(kind=StandardInteger), Allocatable, Dimension(:,:) :: pairKeyArray  ! Total potentials for each combination pair stored in "0"
-    Integer(kind=StandardInteger), Allocatable, Dimension(:,:,:) :: densityKeyArray  ! Total potentials for each combination pair stored in "0"
-    Integer(kind=StandardInteger), Allocatable, Dimension(:,:,:) :: embeddingKeyArray  ! Total potentials for each combination pair stored in "0"
-! Atom details - EFS Calculation
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: electronDensity
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: atomEnergy             ! pair, embedding, total
-    Logical :: fixedDensityCalculated = .false.
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: electronDensityFixed   ! used to approximate electron density without recalculating for small perturbations of atoms
-    Real(kind=DoubleReal) :: pairEnergy
-    Real(kind=DoubleReal) :: embeddingEnergy
-    Real(kind=DoubleReal) :: totalEnergy
-! MD forces/coord - updated as they change
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: coordsMD   ! Initial Coords
-    Real(kind=DoubleReal), Dimension(1:p_cMax,1:3) :: forcesMD   ! Initial Forces
-! Neighbour List Details
-    Integer(kind=StandardInteger), Allocatable, Dimension(:,:) :: nlOverKey   ! Used to isolate individual atoms and their local neighbour list
-    Integer(kind=StandardInteger), Allocatable, Dimension(:) :: atomA_ID
-    Integer(kind=StandardInteger), Allocatable, Dimension(:) :: atomB_ID
-    Integer(kind=StandardInteger), Allocatable, Dimension(:) :: atomA_Type
-    Integer(kind=StandardInteger), Allocatable, Dimension(:) :: atomB_Type
-    Integer(kind=StandardInteger), Allocatable, Dimension(:) :: atomPairKey
-    Integer(kind=StandardInteger), Allocatable, Dimension(:) :: inCell
-! Position Details
-    Real(kind=DoubleReal), Allocatable, Dimension(:) :: rD
-    Real(kind=DoubleReal), Allocatable, Dimension(:,:) :: vecAB
-! Subcell
-    Integer(kind=StandardInteger), Allocatable, Dimension(:,:) :: subCell
-    Integer(kind=StandardInteger), Allocatable, Dimension(:,:) :: cell
-! Subcell
-    Integer(kind=StandardInteger) :: scCount = 0
-    Real(kind=DoubleReal) :: scALat
-    Integer(kind=StandardInteger) :: maxAtomsPerSC = 0
-! Misc
-    Real(kind=DoubleReal) :: rMin
-    Real(kind=DoubleReal) :: rMax
-    Real(kind=DoubleReal) :: rVerlet
-    Real(kind=DoubleReal) :: totalRD
-    Real(kind=DoubleReal) :: totalRDSq
-! NL Update Parameters
-    Real(kind=DoubleReal) :: aLat_Original    ! Lattice parameter when NL built
-  End Type nlType_Opt
+  End Type
+
+
 
 End Module geomTypes
 
@@ -194,7 +121,6 @@ Module geom
   Use basicMaths
   Use keysMod
   Use rng
-  Use rngDist
   Use linearAlgebra
   Use coordFunctions
   Use geomTypes
@@ -212,16 +138,13 @@ Module geom
   Public :: initCoords
   Public :: standardCoords
   Public :: expandUnitCoords
-  Public :: heatCoords
   Public :: zeroForces
+  Public :: initNL
   Public :: makeNL
   Public :: updateNL
-  Public :: makeNL_opt
   Public :: printCoords
   Public :: printNLSummary
-  Public :: Tensor_Homogeneous
-  Public :: Tensor_Orthorhombic
-  Public :: Tensor_Tetragonal
+
 
 
 ! Interfaces
@@ -294,7 +217,7 @@ Module geom
           coords(cKey)%forces(i,j) = 0.0D0
         End Do
       End Do
-      coords(cKey)%length = 0
+      coords(cKey)%points = 0
     End Do
   End Subroutine initCoords
 
@@ -380,26 +303,15 @@ Module geom
   Subroutine expandUnitCoords(coordsUnit, coords)
 ! Init the unit coords data type
     Implicit None   ! Force declaration of all variables
-! Vars:  In/Out
+! Vars:  In
     Type(coordsUnitType), Dimension(:) :: coordsUnit
     Type(coordsType), Dimension(:) :: coords
 ! Vars:  Private
     Integer(kind=StandardInteger) :: i, j, k, m, n, cKey, cKeyE
-    Real(kind=DoubleReal), Dimension(1:3) :: xCoords
-    Real(kind=DoubleReal) :: xMult, yMult, zMult
-! Loop through configs
+! Loop through
     Do cKey=1,size(coordsUnit,1)
       If((cKey.le.size(coords,1)).and.(coordsUnit(cKey)%points.gt.0))Then
         cKeyE = cKey
-! Adjust unit vector
-        xMult = coordsUnit(cKey)%xCopy/coordsUnit(cKey)%xCopy
-        yMult = coordsUnit(cKey)%yCopy/coordsUnit(cKey)%xCopy
-        zMult = coordsUnit(cKey)%zCopy/coordsUnit(cKey)%xCopy
-        Do i=1,3
-          coords%unitCell(1,i) = xMult*coords%unitCell(1,i)
-          coords%unitCell(2,i) = xMult*coords%unitCell(2,i)
-          coords%unitCell(3,i) = xMult*coords%unitCell(3,i)
-        End Do
         m = 0
         Do i=1,coordsUnit(cKey)%xCopy
           Do j=1,coordsUnit(cKey)%yCopy
@@ -420,7 +332,7 @@ Module geom
             End Do
           End Do
         End Do
-        coords(cKeyE)%length = m
+        coords(cKeyE)%points = m
         coords(cKeyE)%aLat = coordsUnit(cKey)%xCopy*coordsUnit(cKey)%aLat
         coords(cKeyE)%unitCell = coordsUnit(cKey)%unitCell
       End If
@@ -428,35 +340,6 @@ Module geom
 ! Initialise data type
   End Subroutine expandUnitCoords
 
-
-
-  Subroutine heatCoords(coords, maxVar, cKey_In)
-! Init the unit coords data type
-    Implicit None   ! Force declaration of all variables
-! Vars:  In/Out
-    Type(coordsType), Dimension(:) :: coords
-    Real(kind=DoubleReal) :: maxVar
-    Integer(kind=StandardInteger), Optional :: cKey_In
-! Vars:  Private
-    Integer(kind=StandardInteger) :: cKey
-    Integer(kind=StandardInteger) :: i, j, k
-! Optional Arguments
-    cKey = 0
-    If(Present(cKey_In))Then
-      cKey = cKey_In
-    End If
-! Heat co-ordinates
-    Do k=1,size(coords,1)
-      If((cKey.eq.0).or.(k.eq.cKey))Then
-        Do i=1,coords(cKey)%length
-          Do j=1,3
-            coords(cKey)%coords(i,j) = coords(cKey)%coords(i,j) + &
-              2.0D0 * (RandomDist("G") - 0.5D0) *  maxVar
-          End Do
-        End Do
-      End If
-    End Do
-  End Subroutine heatCoords
 
 
   Subroutine printCoords(coords, cKey)
@@ -484,7 +367,7 @@ Module geom
 ! Vars:  Private
     Integer(kind=StandardInteger) :: i
 ! Print coords
-    Do i=1,coords(cKey)%length
+    Do i=1,coords(cKey)%points
       print "(I6,A4,A4,A1,I2,A2,E14.5,E14.5,E14.5)",i,"    ",coords(cKey)%label(i),"(",coords(cKey)%labelID(i),") ",&
         coords(cKey)%coords(i,1),coords(cKey)%coords(i,2),coords(cKey)%coords(i,3)
     End Do
@@ -515,19 +398,397 @@ Module geom
 !               Neighbour List
 ! ------------------------------------------------------------
 
-  Include "geom.nl.f90"
+  Subroutine initNL(nl)
+    Implicit None   ! Force declaration of all variables
+! Vars:  In/Out
+    Type(nlType), Dimension(:) :: nl
+! Vars:  Private
+    Integer(kind=StandardInteger) :: cKey
 
-! ------------------------------------------------------------
-!               Neighbour List (for structure optimisation)
-! ------------------------------------------------------------
+    Do cKey = 1,size(nl,1)
+      Allocate(nl(cKey)%atomA_ID(1:12000))
+    End Do
 
-  Include "geom.nl_opt.f90"
+  End Subroutine initNL
 
-! ------------------------------------------------------------
-!               Distortion Tensors
-! ------------------------------------------------------------
 
-  Include "geom.tensors.f90"
+  Subroutine makeNL(nl, coords, rVerlet, cKey_NL_in)
+! Make neighbour list for atoms
+! The input coords and alat must be large enough so the same atom does not interact
+! with a copy in a periodic cell surrounding the original
+! e.g. if the rVerlet cutoff is 5, the alat must be greater than 5
+!
+    Implicit None   ! Force declaration of all variables
+! Vars:  In/Out
+    Type(nlType), Dimension(:) :: nl
+    Type(coordsType), Dimension(:)  :: coords
+    Real(kind=DoubleReal) :: rVerlet
+    Integer(kind=StandardInteger), Optional :: cKey_NL_in
+! Vars:  Private
+    Integer(kind=StandardInteger) :: cKey_NL
+    Integer(kind=StandardInteger) :: cKey
+    Integer(kind=StandardInteger) :: i, j, k
+    Integer(kind=StandardInteger) :: l, m ,n
+    Integer(kind=StandardInteger) :: scX, scY, scZ
+    Integer(kind=StandardInteger) :: atomA, atomB, atomA_ID, atomB_ID
+    Integer(kind=StandardInteger) :: scW, scCount, scKey, maxAtomsPerSC
+    Integer(kind=StandardInteger) :: scKeyA, scKeyB
+    Real(kind=DoubleReal) :: aLat
+    Real(kind=DoubleReal) :: rVerletSQ, scAlat
+    Integer(kind=StandardInteger) :: nlKey
+    Integer(kind=StandardInteger) :: xKey, yKey, zKey
+    Real(kind=DoubleReal) :: xA, xB, yA, yB, zA, zB
+    Real(kind=DoubleReal) :: xD, yD, zD, rD
+    Real(kind=DoubleReal) :: xDsq, yDsq, zDsq, rDsq
+    Real(kind=DoubleReal) :: xShift, yShift, zShift
+    Integer(kind=StandardInteger), Dimension(1:3) :: shiftArr
+    Integer(kind=StandardInteger) :: inCell
+! Vars: Neighbour list estimate
+    Integer(kind=StandardInteger) :: nlArrayLength
+! Vars:  Allocatable arrays
+    Integer(kind=StandardInteger), Allocatable, Dimension(:) :: scAtomCount     ! Number of atoms per sub cell
+    Integer(kind=StandardInteger), Allocatable, Dimension(:,:) :: scKeyArr        ! array of scKey and x,y,z position
+    Integer(kind=StandardInteger), Allocatable, Dimension(:,:,:) :: scCoordsI
+    Real(kind=DoubleReal), Allocatable, Dimension(:,:,:) :: scCoordsR
+!----------------------------------------------
+! Optional arguments
+!----------------------------------------------
+    cKey_NL = 0
+    If(Present(cKey_NL_in))Then
+      cKey_NL = cKey_NL_in
+    End If
+!
+!----------------------------------------------
+! Array Management
+!----------------------------------------------
+!
+! Deallocate if allocated
+    Do cKey=1,size(nl,1)
+      If((cKey.le.size(nl,1)).and.(coords(cKey)%points.gt.0))Then  ! Check that there is space in the nl object and there are coordinates
+        If((cKey_NL.eq.0).or.(cKey_NL.eq.cKey))Then
+!-------------------
+    If(Allocated(nl(cKey)%atomA_ID))Then
+      Deallocate(nl(cKey)%atomA_ID)
+    End If
+    If(Allocated(nl(cKey)%atomB_ID))Then
+      Deallocate(nl(cKey)%atomB_ID)
+    End If
+    If(Allocated(nl(cKey)%atomA_Type))Then
+      Deallocate(nl(cKey)%atomA_Type)
+    End If
+    If(Allocated(nl(cKey)%atomB_Type))Then
+      Deallocate(nl(cKey)%atomB_Type)
+    End If
+    If(Allocated(nl(cKey)%atomPairKey))Then
+      Deallocate(nl(cKey)%atomPairKey)
+    End If
+    If(Allocated(nl(cKey)%inCell))Then
+      Deallocate(nl(cKey)%inCell)
+    End If
+    If(Allocated(nl(cKey)%rD))Then
+      Deallocate(nl(cKey)%rD)
+    End If
+    If(Allocated(nl(cKey)%vecAB))Then
+      Deallocate(nl(cKey)%vecAB)
+    End If
+    If(Allocated(nl(cKey)%subCell))Then
+      Deallocate(nl(cKey)%subCell)
+    End If
+    If(Allocated(nl(cKey)%cell))Then
+      Deallocate(nl(cKey)%cell)
+    End If
+!-------------------
+        End If
+      End If
+    End Do
+! Allocate if not allocated
+    Do cKey=1,size(nl,1)
+      If((cKey.le.size(nl,1)).and.(coords(cKey)%points.gt.0))Then  ! Check that there is space in the nl object and there are coordinates
+        If((cKey_NL.eq.0).or.(cKey_NL.eq.cKey))Then
+!-------------------
+! Estimate NL size
+      nlArrayLength = 2000+&
+        ceiling(0.35D0*(coords(cKey)%points)**2*(8.0D0*rVerlet**3)/((coords(cKey)%aLat)**3))
+      nl(cKey)%arrayLength = nlArrayLength
+! Atom details
+      Allocate(nl(cKey)%atomA_ID(1:nlArrayLength))
+      Allocate(nl(cKey)%atomB_ID(1:nlArrayLength))
+      Allocate(nl(cKey)%atomA_Type(1:nlArrayLength))
+      Allocate(nl(cKey)%atomB_Type(1:nlArrayLength))
+      Allocate(nl(cKey)%atomPairKey(1:nlArrayLength))
+      Allocate(nl(cKey)%inCell(1:nlArrayLength))
+! Position Details
+      Allocate(nl(cKey)%rD(1:nlArrayLength))
+      Allocate(nl(cKey)%vecAB(1:nlArrayLength,1:3))
+! Subcell
+      Allocate(nl(cKey)%subCell(1:nlArrayLength,1:3))
+      Allocate(nl(cKey)%cell(1:nlArrayLength,1:3))
+!-------------------
+        End If
+      End If
+    End Do
+!
+!----------------------------------------------
+! Build NL
+!----------------------------------------------
+!
+! Loop through configs
+!
+    Do cKey=1,size(coords,1)
+      If((cKey.le.size(nl,1)).and.(coords(cKey)%points.gt.0))Then  ! Check that there is space in the nl object and there are coordinates
+        If((cKey_NL.eq.0).or.(cKey_NL.eq.cKey))Then
+!----------------------------------------------
+! Store from coords
+    nl(cKey)%aLat = coords(cKey)%aLat
+    nl(cKey)%unitCell = coords(cKey)%unitCell
+    nl(cKey)%coordsLength = coords(cKey)%points
+    nl(cKey)%coords = coords(cKey)%coords
+!
+    Do i=1,nl(cKey)%coordsLength
+      Do j=1,3
+        nl(cKey)%coordsReal(i,j) = nl(cKey)%aLat*coords(cKey)%coords(i,j)
+      End Do
+      print *,nl(cKey)%coordsReal(i,1),nl(cKey)%coordsReal(i,2),nl(cKey)%coordsReal(i,3)
+    End Do
+!----------------------------------------------
+! Init config specific variables
+!    coordLength = coords(cKey)%points
+    rVerletSQ = rVerlet**2
+    aLat = coords(cKey)%aLat
+    nl(cKey)%totalRD = 0.0D0
+    nl(cKey)%totalRDSq = 0.0D0
+    nl(cKey)%rVerlet = rVerlet
+    nl(cKey)%rMin = rVerlet
+    nl(cKey)%rMax = 0.0D0
+    nlKey = 0
+! calculate sub cell parameters
+    scW = floor(aLat/(1.0D0*rVerlet))
+    If(scW.lt.1)Then
+      scW = 1
+    End If
+    scCount = scW**3
+    scAlat = aLat/(1.0D0*scW)
+    maxAtomsPerSC = 5*ceiling(nl(cKey)%coordsLength/(1.0D0*scCount))
+    nl(cKey)%scCount = scCount
+    nl(cKey)%scAlat = scAlat
+    nl(cKey)%maxAtomsPerSC = maxAtomsPerSC
+    If(Allocated(scAtomCount))Then
+      Deallocate(scAtomCount)
+    End If
+    If(Allocated(scKeyArr))Then
+      Deallocate(scKeyArr)
+    End If
+    If(Allocated(scCoordsI))Then
+      Deallocate(scCoordsI)
+    End If
+    If(Allocated(scCoordsR))Then
+      Deallocate(scCoordsR)
+    End If
+! Allocate arrays
+    Allocate(scAtomCount(1:scCount))
+    Allocate(scKeyArr(1:scCount,1:3))
+    Allocate(scCoordsI(1:scCount,1:maxAtomsPerSC,1:2))
+    Allocate(scCoordsR(1:scCount,1:maxAtomsPerSC,1:3))
+! Init arrays
+    scAtomCount = 0
+    Do k=1,scW
+      Do j=1,scW
+        Do i=1,scW
+          scKey = i+scW*(j-1)+scW**2*(k-1)
+          scKeyArr(scKey,1) = i
+          scKeyArr(scKey,2) = j
+          scKeyArr(scKey,3) = k
+        End Do
+      End Do
+    End Do
+! Loop through atoms
+    Do i=1,nl(cKey)%coordsLength
+      scKey = SubCellKey(scAlat,scW,&
+        nl(cKey)%coordsReal(i,1),nl(cKey)%coordsReal(i,2),nl(cKey)%coordsReal(i,3))
+      scAtomCount(scKey) = scAtomCount(scKey) + 1
+! Store in sub cell arrays
+      scCoordsI(scKey,scAtomCount(scKey),1) = i                 ! unique atom id
+      scCoordsI(scKey,scAtomCount(scKey),2) = coords(cKey)%labelID(i)      ! atom type
+      Do j=1,3
+        scCoordsR(scKey,scAtomCount(scKey),j) = coords(cKey)%coords(i,j)
+      End Do
+    End Do
+! Make neighbour list
+! Loop through subcells
+    Do scKeyA=1,scCount
+! loop through surrounding and image sub cells
+      Do l=-1,1
+        Do m=-1,1
+          Do n=-1,1
+! Atom B subcell key
+            xKey = scKeyArr(scKeyA,1)+l
+            yKey = scKeyArr(scKeyA,2)+m
+            zKey = scKeyArr(scKeyA,3)+n
+! PBC subcell key
+            scX = Modulus(xKey-1,scW)+1
+            scY = Modulus(yKey-1,scW)+1
+            scZ = Modulus(zKey-1,scW)+1
+            scKeyB = scX+scW*(scY-1)+scW**2*(scZ-1)
+! set default coord shift
+            xShift = 0.0D0
+            yShift = 0.0D0
+            zShift = 0.0D0
+            shiftArr = 0
+! adjust shift
+            inCell = 1
+            If(xKey.lt.1)Then
+              xShift = -1.0D0 * aLat
+              shiftArr(1) = -1
+              inCell = 0
+            End If
+            If(yKey.lt.1)Then
+              yShift = -1.0D0 * aLat
+              shiftArr(2) = -1
+              inCell = 0
+            End If
+            If(zKey.lt.1)Then
+              zShift = -1.0D0 * aLat
+              shiftArr(3) = -1
+              inCell = 0
+            End If
+            If(xKey.gt.scW)Then
+              xShift = 1.0D0 * aLat
+              shiftArr(1) = 1
+              inCell = 0
+            End If
+            If(yKey.gt.scW)Then
+              yShift = 1.0D0 * aLat
+              shiftArr(2) = 1
+              inCell = 0
+            End If
+            If(zKey.gt.scW)Then
+              zShift = 1.0D0 * aLat
+              shiftArr(3) = 1
+              inCell = 0
+            End If
+! loop through A atoms
+            Do atomA =1,scAtomCount(scKeyA)
+! loop through B atoms
+              Do atomB =atomA+1,scAtomCount(scKeyB)
+                atomA_ID = scCoordsI(scKeyA,atomA,1)
+                atomB_ID = scCoordsI(scKeyB,atomB,1)
+                xA = scCoordsR(scKeyA,atomA,1)
+                xB = scCoordsR(scKeyB,atomB,1)+xShift
+                xD = xA-xB
+                xDsq = xd**2
+                If(xDsq.le.rVerletSQ)Then
+                  yA = scCoordsR(scKeyA,atomA,2)
+                  yB = scCoordsR(scKeyB,atomB,2)+yShift
+                  yD = yA-yB
+                  yDsq = yd**2
+                  If(yDsq.le.rVerletSQ)Then
+                    zA = scCoordsR(scKeyA,atomA,3)
+                    zB = scCoordsR(scKeyB,atomB,3)+zShift
+                    zD = zA-zB
+                    zDsq = zd**2
+                    If(zDsq.le.rVerletSQ)Then
+                      rdSq = xDsq + yDsq + zDsq
+                      If(rdSq.le.rVerletSq)Then
+                        rd = sqrt(rdSq)
+                        ! Key
+                        nlKey = nlKey + 1
+                        ! Key/Type
+                        nl(cKey)%atomA_ID(nlKey) = atomA_ID                   ! A ID
+                        nl(cKey)%atomB_ID(nlKey) = atomB_ID                   ! B ID
+                        nl(cKey)%atomA_Type(nlKey) = scCoordsI(scKeyA,atomA,2)  ! A type
+                        nl(cKey)%atomB_Type(nlKey) = scCoordsI(scKeyB,atomB,2)  ! B type
+                        nl(cKey)%inCell(nlKey) = inCell                     ! 1 if in cell, 0 if out of cell
+                        nl(cKey)%atomPairKey = DoubleKey(scCoordsI(scKeyA,atomA,2),scCoordsI(scKeyB,atomB,2))
+                        ! Displacement/Direction
+                        nl(cKey)%rD(nlKey) = rD
+                        nl(cKey)%vecAB(nlKey,1) = xD/rD                ! Vector from B to A (x)
+                        nl(cKey)%vecAB(nlKey,2) = yD/rD                ! Vector from B to A (y)
+                        nl(cKey)%vecAB(nlKey,3) = zD/rD                ! Vector from B to A (z)
+                        ! super cell coords of atom B
+                        nl(cKey)%subCell(nlKey,1) = shiftArr(1)
+                        nl(cKey)%subCell(nlKey,2) = shiftArr(2)
+                        nl(cKey)%subCell(nlKey,3) = shiftArr(3)
+                        If(rD.gt.nl(cKey)%rMax)Then
+                          nl(cKey)%rMax = rD
+                        End If
+                        If(rD.lt.nl(cKey)%rMin)Then
+                          nl(cKey)%rMin = rD
+                        End If
+                      End If
+                    End If
+                  End If
+                End If
+              End Do
+            End Do
+          End Do
+        End Do
+      End Do
+    End Do
+    nl(cKey)%length = nlKey
+! Original NL parameters
+    nl(cKey)%aLat_Original = nl(cKey)%aLat
+    nl(cKey)%aLat_Current = nl(cKey)%aLat
+!----------------------------------------------
+        End If
+      End If
+    End Do
+!
+!
+
+
+  End Subroutine makeNL
+
+
+
+  Subroutine updateNL(nl, cKey_NL_in)
+! Update neighbour list without rebuilding
+!
+    Implicit None   ! Force declaration of all variables
+! Vars:  In/Out
+    Type(nlType), Dimension(:) :: nl
+    Integer(kind=StandardInteger), Optional :: cKey_NL_in
+! Vars:  Private
+Integer(kind=StandardInteger) :: n, cKey, cKey_NL
+    Real(kind=DoubleReal) :: aLat
+    Real(kind=DoubleReal) :: xD, yD, zD
+!----------------------------------------------
+! Optional arguments
+!----------------------------------------------
+    cKey_NL = 0
+    If(Present(cKey_NL_in))Then
+      cKey_NL = cKey_NL_in
+    End If
+! Loop through neighbour lists
+    Do cKey=1,size(nl,1)
+      If((cKey_NL.eq.0).or.(cKey_NL.eq.cKey))Then
+!------------------------
+    aLat = nl(cKey)%aLat_Current
+    print *,aLat
+! Loop through pairs
+    Do n=1,nl(cKey)%length
+! Update atom seperation
+      xD = aLat*(nl(cKey)%coords(nl(cKey)%atomA_ID(n),1)-nl(cKey)%coords(nl(cKey)%atomB_ID(n),1)+&
+             nl(cKey)%subCell(n,1)) ! xA - yA
+      yD = aLat*(nl(cKey)%coords(nl(cKey)%atomA_ID(n),2)-nl(cKey)%coords(nl(cKey)%atomB_ID(n),2)+&
+             nl(cKey)%subCell(n,2)) ! xB - yB
+      zD = aLat*(nl(cKey)%coords(nl(cKey)%atomA_ID(n),3)-nl(cKey)%coords(nl(cKey)%atomB_ID(n),3)+&
+            nl(cKey)%subCell(n,3)) ! xC - yC
+      nl(cKey)%rD(n) = sqrt(xD**2+yD**2+zD**2)
+      If(n.lt.10)Then
+        print *,xD,nl(cKey)%rD(n),nl(cKey)%coords(nl(cKey)%atomA_ID(n),1),nl(cKey)%subCell(n,1)
+      End If
+! Update atom A to atom B vector
+      nl(cKey)%vecAB(n,1) = xD/nl(cKey)%rD(n)
+      nl(cKey)%vecAB(n,2) = yD/nl(cKey)%rD(n)
+      nl(cKey)%vecAB(n,3) = zD/nl(cKey)%rD(n)
+    End Do
+!------------------------
+      End If
+    End Do
+  End Subroutine updateNL
+
+
+
 
 
 
@@ -597,6 +858,22 @@ Module geom
 !
 ! -----------------------------------------------
 
+
+  Function SubCellKey (scAlat, scW, x, y, z) Result (key)
+! Return sub cell key
+    Implicit None   ! Force declaration of all variables
+! In
+    Real(kind=DoubleReal) :: scAlat, x, y, z
+    Integer(kind=StandardInteger) :: scW
+! Out
+    Integer(kind=StandardInteger) :: key
+! Private
+    Integer(kind=StandardInteger) :: i, j, k
+    i = floor(x/(1.0D0*scAlat))+1
+    j = floor(y/(1.0D0*scAlat))+1
+    k = floor(z/(1.0D0*scAlat))+1
+    key = i+scW*(j-1)+scW**2*(k-1)
+  End Function SubCellKey
 
 
 ! Basic energy-force functions

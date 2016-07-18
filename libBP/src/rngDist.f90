@@ -6,11 +6,12 @@ Module rngDist
   Use constants
   Use rng
   Use calcFunctions
+  Use fitting
   Use regression
   Use interpolation
 ! Force declaration of all variables
   Implicit None
-! Public variables  
+! Public variables
   Real(kind=DoubleReal) :: randomDist_randNumberG = -1.0D0
   Real(kind=DoubleReal) :: randomDist_randNumberH = -1.0D0
   Real(kind=DoubleReal), Dimension(0:100,1:2) :: randomDist_inverseInt = 0.0D0
@@ -21,12 +22,12 @@ Module rngDist
   Public :: RandomDist
   Public :: RandomDist_GP
   Public :: RandomVaryPoint
-! Interfaces  
+! Interfaces
 !
 !---------------------------------------------------------------------------------------------------------------------------------------
-  Contains 
+  Contains
 !---------------------------------------------------------------------------------------------------------------------------------------
- 
+
 
   Function RandomDist(distTypeIn,setupDistIn,lowerIn,upperIn,sigmaIn) RESULT (output)
 ! Random float
@@ -165,7 +166,7 @@ Module rngDist
       End If
       yArray = PointInterp(randomDist_inverseInt,randNumber,4)  ! maths.f90
       randNumber = yArray(1)
-    End If    
+    End If
 ! Output (adjust to fall in range)
     output = lower + randNumber*(upper-lower)
   End Function RandomDist

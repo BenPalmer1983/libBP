@@ -22,7 +22,7 @@ Module isotopesTypes
   Private
 ! Public Variables and Parameters
   Public :: p_maxIsotopes, p_maxElements
-! Public derived types
+! Public derived data types
   Public :: isotopesObj, isotopeObj, elementsObj, elementObj
 
   Type :: isotopesObj  ! Many

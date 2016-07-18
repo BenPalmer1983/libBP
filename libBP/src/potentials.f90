@@ -18,10 +18,11 @@ Module potentialsTypes
   Implicit None
 ! Vars:  Module Parameters
   Integer(kind=StandardInteger), Parameter :: p_potentials = 32
+  Integer(kind=StandardInteger), Parameter :: p_potPoints = 1001
 ! Make private
   Private
 ! Public Variables and Parameters
-  Public :: p_potentials
+  Public :: p_potentials, p_potPoints
 ! Public derived types
   Public :: potentialType, potentialSearchType
 
@@ -46,10 +47,10 @@ Module potentialsTypes
     Integer(kind=StandardInteger), Dimension(1:p_potentials) :: fPointCount = 0
     Real(kind=DoubleReal), Dimension(1:p_potentials) :: xMin = 0.0D0   ! Angstrom
     Real(kind=DoubleReal), Dimension(1:p_potentials) :: xMax = 10.0D0   ! Angstrom
-    Real(kind=DoubleReal), Dimension(1:p_potentials,1:1001,1:4) :: dataPoints = 0.0D0
-    Real(kind=DoubleReal), Dimension(1:p_potentials,1:1001,1:4) :: dataPoints_C = 0.0D0  ! Calculated data points, from numeric and analytic, with ZBL, if switched ON
-    Real(kind=DoubleReal), Dimension(1:p_potentials,1:100,1:2) :: splineNodes = 0.0D0
-    Real(kind=DoubleReal), Dimension(1:p_potentials,1:1001,1:4) :: splinePoints = 0.0D0
+    Real(kind=DoubleReal), Dimension(1:p_potentials,1:p_potPoints,1:4) :: dataPoints = 0.0D0
+    Real(kind=DoubleReal), Dimension(1:p_potentials,1:p_potPoints,1:4) :: dataPoints_C = 0.0D0  ! Calculated data points, from numeric and analytic, with ZBL, if switched ON
+    Real(kind=DoubleReal), Dimension(1:p_potentials,1:p_potPoints,1:2) :: splineNodes = 0.0D0
+    Real(kind=DoubleReal), Dimension(1:p_potentials,1:p_potPoints,1:4) :: splinePoints = 0.0D0
 !   Atom IDs
     Character(Len=16), Dimension(1:64) :: atomIDs
     Integer(kind=StandardInteger) :: atomID_Count
@@ -61,6 +62,11 @@ Module potentialsTypes
     Real(kind=DoubleReal), Dimension(1:p_potentials,1:4) :: zbl_rB      !  B x,y,y',y''
 ! ZBL to function spline
     Real(kind=DoubleReal), Dimension(1:p_potentials,1:4) :: zblExpSpline
+! Potential Fitting
+    Real(kind=DoubleReal), Dimension(1:p_potentials) :: fitMin = 0.0D0
+    Real(kind=DoubleReal), Dimension(1:p_potentials) :: fitMax = 10.0D0
+    Real(kind=DoubleReal), Dimension(1:p_potentials,1:3) :: morseFit = 0.0D0   ! De, a, rc
+    Real(kind=DoubleReal), Dimension(1:p_potentials,1:4) :: zbl_rB_Morse      !  B x,y,y',y''  exp(p(x)) spline zbl to morse potential point B
 
 ! analyticType:
 ! MORSE
@@ -118,6 +124,7 @@ Module potentials
 ! ---- Subroutines
   Public :: initPotential
   Public :: loadPotential
+  Public :: fitStandardPotentials
   Public :: printPotentialSummary
   Public :: SearchPotential
   Public :: SearchPotential_Name
@@ -232,22 +239,22 @@ Module potentials
         potential%fPotential(fN) = trim(tempField)
 ! Set pair function
         potential%pairFunction(fN) = .true.
-        If(potential%fPotential(fN).eq."DENS")Then
+        If(StrMatch(potential%fPotential(fN),"DENS"))Then
           potential%pairFunction(fN) = .false.
         End If
-        If(potential%fPotential(fN).eq."DDEN")Then
+        If(StrMatch(potential%fPotential(fN),"DDEN"))Then
           potential%pairFunction(fN) = .false.
         End If
-        If(potential%fPotential(fN).eq."SDEN")Then
+        If(StrMatch(potential%fPotential(fN),"SDEN"))Then
           potential%pairFunction(fN) = .false.
         End If
-        If(potential%fPotential(fN).eq."EMBE")Then
+        If(StrMatch(potential%fPotential(fN),"EMBE"))Then
           potential%pairFunction(fN) = .false.
         End If
-        If(potential%fPotential(fN).eq."DEMB")Then
+        If(StrMatch(potential%fPotential(fN),"DEMB"))Then
           potential%pairFunction(fN) = .false.
         End If
-        If(potential%fPotential(fN).eq."SEMB")Then
+        If(StrMatch(potential%fPotential(fN),"SEMB"))Then
           potential%pairFunction(fN) = .false.
         End If
 ! Store parameter numbers
@@ -352,6 +359,9 @@ Module potentials
       potential%zbl_ZA(fN) = elementDetails%atomicNumber
       elementDetails = SearchElements(potential%atomLabel_B(fN), elementsList)
       potential%zbl_ZB(fN) = elementDetails%atomicNumber
+! Default fit Min/Max
+      potential%fitMin(fN) = potential%xMin(fN)
+      potential%fitMax(fN) = potential%xMax(fN)
 ! Calculate ZBL points
       If((potential%zbl_ZA(fN).gt.0).and.(potential%zbl_ZB(fN).gt.0))Then
         If((potential%zbl_rA(fN,1).gt.0.0).and.(potential%zbl_rB(fN,1).gt.potential%zbl_rA(fN,1)))Then
@@ -380,10 +390,13 @@ Module potentials
             potential%zblExpSpline(fN,2) = expCoefficients(2)
             potential%zblExpSpline(fN,3) = expCoefficients(3)
             potential%zblExpSpline(fN,4) = expCoefficients(4)
+! Change fit min
+            potential%fitMin(fN) = potential%zbl_rB(fN,1)  ! Point b, x value
           End If
         End If
       End If
 ! Generate calculated data points
+! from both ANALYTIC and NUMERIC potentials
       xInc = (potential%xMax(fN)-potential%xMin(fN))/1000
       x = potential%xMin(fN)
       searchObj%fN = fN
@@ -400,22 +413,108 @@ Module potentials
         x = x + xInc
       End Do
     End Do
-
   End Subroutine updatePotential
+
+! ----------------------------------------------------
+! Potential fitting
+! ----------------------------------------------------
+
+
+  Subroutine fitStandardPotentials(potential)
+! Fit potential to standard analytic potentials
+    Implicit None   ! Force declaration of all variables
+! Vars:  In/Out
+    Type(potentialType) :: potential
+! Vars:  Private
+    Integer(kind=StandardInteger) :: fN, i, j, k, n
+    Real(kind=DoubleReal), Dimension(1:p_potPoints,1:2) :: tempDataPoints
+    Real(kind=DoubleReal), Dimension(1:20,1:2) :: tempDataPointsReduced
+    Real(kind=DoubleReal), Dimension(1:3) :: morseParameters
+    Real(kind=DoubleReal), Dimension(1:3) :: yArray
+! Loop through functions
+    Do fN = 1,potential%fCount
+      If(potential%pairFunction(fN))Then
+        j = 0
+        Do i=1,p_potPoints
+          If(potential%dataPoints_C(fN,i,1).ge.potential%fitMin(fN))Then
+            If(potential%dataPoints_C(fN,i,1).le.potential%fitMax(fN))Then
+              j = j + 1
+              tempDataPoints(j,1) = potential%dataPoints_C(fN,i,1)
+              tempDataPoints(j,2) = potential%dataPoints_C(fN,i,2)
+            End If
+          End If
+        End Do
+        n = j
+! Reduce points
+        k = 1
+        If(n.gt.10)Then
+          k = ceiling(n/10.0D0)
+        End If
+        i = 1
+        j = 0
+        Do While(i.lt.n)
+          j = j + 1
+          tempDataPointsReduced(j,1) = tempDataPoints(i,1)
+          tempDataPointsReduced(j,2) = tempDataPoints(i,2)
+          i = i + k
+        End Do
+!
+! Fit Morse Potential
+!----------------------------
+        Call fitPot_Morse(tempDataPointsReduced, j, morseParameters)
+        potential%morseFit(fN,1) = morseParameters(1)
+        potential%morseFit(fN,2) = morseParameters(2)
+        potential%morseFit(fN,3) = morseParameters(3)
+        potential%zbl_rB_Morse(fN,1) = potential%zbl_rB_Morse(fN,1)
+        yArray = F_MorseFull(morseParameters,potential%zbl_rB_Morse(fN,1))
+        potential%zbl_rB_Morse(fN,2) = yArray(1)
+        potential%zbl_rB_Morse(fN,3) = yArray(2)
+        potential%zbl_rB_Morse(fN,4) = yArray(3)
+!
+! Fit LJ Potential
+!----------------------------
+
+      End If
+    End Do
+  End Subroutine fitStandardPotentials
+! -------------------------
+  Subroutine fitPot_Morse(tempDataPoints, pointCount, parameters)
+! Fit potential to standard analytic potentials
+    Implicit None   ! Force declaration of all variables
+! Vars:  In/Out
+    Real(kind=DoubleReal), Dimension(:,:) :: tempDataPoints
+    Integer(kind=StandardInteger) :: pointCount
+    Real(kind=DoubleReal), Dimension(1:3) :: parameters
+! Vars:  Private
+    Real(kind=DoubleReal), Dimension(1:pointCount,1:2) :: dataPoints
+    Integer(kind=StandardInteger) :: i
+! Transfer data
+    Do i=1,pointCount
+      dataPoints(i,1) = tempDataPoints(i,1)
+      dataPoints(i,2) = tempDataPoints(i,2)
+    End Do
+! Fit data points
+    parameters = MorseFit(dataPoints)
+  End Subroutine fitPot_Morse
+
+
+! ----------------------------------------------------
+! Printing
+! ----------------------------------------------------
 
 
   Subroutine printPotentialSummary(potential)
-  ! Add a morse potential
+! Add a morse potential
     Implicit None   ! Force declaration of all variables
-  ! Vars:  In
+! Vars:  In/Out
     Type(potentialType) :: potential
-  ! Vars:  Private
+! Vars:  Private
     Integer(kind=StandardInteger) :: i
     Character(Len=128) :: tempLine
-  !--------
+!--------
     Write(tempLine,*) "Potential Functions Summary (",potential%fCount,")"
     Call addLinePage(tempLine,"T")
-  ! Loop through functions
+! Loop through functions
     Do i = 1,potential%fCount
       Write(tempLine,"(I2,A1,A1,A1,A10,A1,A4,I2,A4,I2,A2,I2,A1)") &
       i," ",potential%fType(i)," ",potential%fPotential(i)," ",&
